@@ -6,6 +6,7 @@
 #include "parser.hpp"
 #include "printer.hpp"
 #include "utils.hpp"
+#include "builtin.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -13,7 +14,7 @@
 
 // test_combinator.cpp
 #include <functional>
-#include <string>
+//#include <string>
 
 #include "combinator.hpp"
 #include "interpreter.hpp"

@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <string>
+#include <variant>
 
 #include "ast.hpp"
 #include "printer.hpp"
@@ -17,7 +18,7 @@ overloaded(Ts...) -> overloaded<Ts...>;
 #define PRINT_LINE() \
 	std::cout << "Line: " << __LINE__ << " (in " << __FILE__ << ")" << std::endl
 
-std::string DotPrinter::print(const lox::Expr* expr) {
+std::string DotPrinter::print(const dara::Expr* expr) {
 	this->out << "digraph AST {" << std::endl;
 	this->out << "graph [size=\"8,10!\", dpi=150, nodesep=0.4, ranksep=0.5];"
 	          << std::endl;
@@ -33,8 +34,8 @@ std::string DotPrinter::print(const lox::Expr* expr) {
 /* */
 
 std::string DotPrinter::print(
-    const std::vector<std::unique_ptr<lox::Decl>>& program) {
-	// std::string DotPrinter::print(const lox::Program& program) {
+    const std::vector<std::unique_ptr<dara::Decl>>& program) {
+	// std::string DotPrinter::print(const dara::Program& program) {
 	this->out.str("");
 	this->out.clear();
 	this->counter = 0;
@@ -61,7 +62,7 @@ std::string DotPrinter::print(
 	return this->out.str();
 }
 
-std::string DotPrinter::print(const lox::Program* program) {
+std::string DotPrinter::print(const dara::Program* program) {
 	this->out.str("");
 	this->out.clear();
 	this->counter = 0;
@@ -87,7 +88,7 @@ std::string DotPrinter::print(const lox::Program* program) {
 };
 
 /*
-std::string DotPrinter::print(const std::vector<std::unique_ptr<lox::Decl>>
+std::string DotPrinter::print(const std::vector<std::unique_ptr<dara::Decl>>
 program) { std::stringstream ss; ss << "digraph AST {\n"; ss << "  node
 [shape=box, fontname=\"Helvetica\", style=filled, " "fillcolor=\"#f8f9fa\"];\n";
     ss << "  edge [color=\"#495057\"];\n\n";
@@ -113,10 +114,10 @@ i
 */
 
 // visit_vecl in printer_dot.cpp
-std::string DotPrinter::visit_decl(const lox::Decl* decl) {
+std::string DotPrinter::visit_decl(const dara::Decl* decl) {
 	return std::visit(
 	    overloaded{
-	        [this](const lox::TopLevelStmt& tls) {
+	        [this](const dara::TopLevelStmt& tls) {
 		        std::string id = this->next_node_id();
 		        this->out
 		            << std::format(
@@ -128,20 +129,55 @@ std::string DotPrinter::visit_decl(const lox::Decl* decl) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const lox::VarDecl& vd) {
+	        [this](const dara::VarDecl& vd) {
 		        std::string id = this->next_node_id();
-		        this->out
-		            << std::format(
-		                   "node_{} [label=\"VarDecl({})\", shape=invhouse];",
-		                   id, vd.name)
-		            << std::endl;
 
+		        bool is_require = false;
+		        std::string module_path = "unknown";
+
+		        if (vd.initializer && std::holds_alternative<dara::CallExpr>(
+		                                  vd.initializer->value)) {
+			        auto& call_expr =
+			            std::get<dara::CallExpr>(vd.initializer->value);
+
+			        if (call_expr.callee &&
+			            std::holds_alternative<dara::VarExpr>(
+			                call_expr.callee->value)) {
+				        auto& var_expr =
+				            std::get<dara::VarExpr>(call_expr.callee->value);
+				        if (var_expr.name == "require") {
+					        is_require = true;
+					        if (!call_expr.arguments.empty() &&
+					            std::holds_alternative<dara::StringExpr>(
+					                call_expr.arguments[0]->value)) {
+						        module_path = std::get<dara::StringExpr>(
+						                          call_expr.arguments[0]->value)
+						                          .value;
+					        }
+				        }
+			        }
+		        }
+
+		        if (is_require) {
+			        this->out << std::format(
+			                         "node_{} [label=\"Module({})\", "
+			                         "shape=component];",
+			                         id, vd.name)
+			                  << std::endl;
+			        return id;
+		        } else {
+			        this->out << std::format(
+			                         "node_{} [label=\"VarDecl({})\", "
+			                         "shape=invhouse];",
+			                         id, vd.name)
+			                  << std::endl;
+		        }
 		        std::string child_id = this->visit_expr(vd.initializer.get());
 		        this->out << std::format("node_{}->node_{};", id, child_id)
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const lox::ClassDecl& cd) {
+	        [this](const dara::ClassDecl& cd) {
 		        std::string id = this->next_node_id();
 		        this->out
 		            << std::format(
@@ -195,7 +231,7 @@ std::string DotPrinter::visit_decl(const lox::Decl* decl) {
 }
 
 // print in printer_dot.cpp
-std::string DotPrinter::print(const lox::Decl* decl) {
+std::string DotPrinter::print(const dara::Decl* decl) {
 	this->out << "digraph AST {" << std::endl;
 	this->out << "  node [shape=box, fontname=\"Courier\"];" << std::endl;
 
@@ -205,7 +241,7 @@ std::string DotPrinter::print(const lox::Decl* decl) {
 
 	auto id = std::visit(
 	    overloaded{
-	        [this](const lox::TopLevelStmt& tls) {
+	        [this](const dara::TopLevelStmt& tls) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"TopLevelStmt\"];",
 		                                 id)
@@ -216,7 +252,7 @@ std::string DotPrinter::print(const lox::Decl* decl) {
 		        return id;
 	        },
 	        /* next vardecl dot */
-	        [this](const lox::VarDecl& vd) {
+	        [this](const dara::VarDecl& vd) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"VarDecl({})\"];", id,
 		                                 vd.name)
@@ -245,16 +281,179 @@ std::string DotPrinter::next_node_id() {
 };
 
 // visit_stmt in printer_dot.cpp
-std::string DotPrinter::visit_stmt(const lox::Stmt* stmt) {
+/*
+std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
+    auto id = std::visit(
+        overloaded{
+            [this](const dara::BlockStmt& bs) -> std::string {
+                std::string id = this->next_node_id();
+                this->out << std::format("node_{} [label=\"BlockStmt\"];", id)
+<< std::endl; for (size_t i = 0; i < bs.declarations.size(); ++i) { std::string
+child_id = this->visit_decl(bs.declarations[i].get()); this->out <<
+std::format("node_{}->node_{};", id, child_id) << std::endl;
+                }
+                return id;
+            },
+            [this](const dara::IfStmt& is) -> std::string {
+                std::string id = this->next_node_id();
+                this->out << std::format("node_{} [label=\"IfStmt\"];", id) <<
+std::endl; std::string condition_id = this->visit_expr(is.condition.get());
+                this->out << std::format("node_{}->node_{}
+[label=\"condition\"];", id, condition_id) << std::endl; std::string then_id =
+this->visit_stmt(is.then_branch.get()); this->out <<
+std::format("node_{}->node_{} [label=\"then\"];", id, then_id) << std::endl; if
+(is.else_branch) { std::string else_id = this->visit_stmt(is.else_branch.get());
+                    this->out << std::format("node_{}->node_{};", id, else_id)
+<< std::endl;
+                }
+                return id;
+            },
+            [this](const dara::WhileStmt& ws) -> std::string {
+                std::string id = this->next_node_id();
+                this->out << std::format("node_{} [label=\"WhileStmt\"];", id)
+<< std::endl; std::string condition_id = this->visit_expr(ws.condition.get());
+                this->out << std::format("node_{}->node_{}
+[label=\"condition\"];", id, condition_id) << std::endl; std::string then_id =
+this->visit_stmt(ws.body.get()); this->out << std::format("node_{}->node_{}
+[label=\"body\"];", id, then_id) << std::endl; return id;
+            },
+            [this](const dara::ForInStmt& ws) -> std::string {
+                std::string id = this->next_node_id();
+                this->out << std::format("node_{} [label=\"ForInStmt\"];", id)
+<< std::endl; std::string var_id = this->next_node_id(); this->out <<
+std::format("node_{}->node_{};", id, var_id) << std::endl; this->out <<
+std::format("node_{} [label=\"loop var: {}\"];", var_id, ws.loop_variable) <<
+std::endl; std::string body_id = this->visit_stmt(ws.body.get()); this->out <<
+std::format("node_{}->node_{} [label=\"body\"];", id, body_id) << std::endl;
+                return id;
+            },
+            [this](const dara::PrintStmt& ps) -> std::string {
+                std::string id = this->next_node_id();
+                this->out << std::format("node_{} [label=\"PrintStmt\"];", id)
+<< std::endl; std::string child_id = this->visit_expr(ps.expr.get()); this->out
+<< std::format("node_{}->node_{};", id, child_id) << std::endl; return id;
+            },
+            [this](const dara::AssignStmt& as) -> std::string {
+                std::string id = this->next_node_id();
+                this->out << std::format("node_{} [label=\"AssignStmt({})\"];",
+id, as.name) << std::endl; std::string child_id =
+this->visit_expr(as.value.get()); this->out << std::format("node_{}->node_{};",
+id, child_id) << std::endl; return id;
+            },
+            [this](const dara::ExprStmt& es) -> std::string {
+                std::string id = this->next_node_id();
+                this->out << std::format("node_{} [label=\"ExprStmt\"];", id) <<
+std::endl; std::string child_id = this->visit_expr(es.expr.get()); this->out <<
+std::format("node_{}->node_{};", id, child_id) << std::endl; return id;
+            },
+            [this](const dara::IncStmt& es) -> std::string {
+                std::string id = this->next_node_id();
+                this->out << std::format("node_{} [label=\"IncStmt\"];", id) <<
+std::endl; std::string child_id = this->next_node_id(); this->out <<
+std::format("node_{} [label=\"var: {}\", shape=house];", child_id, es.name);
+                this->out << std::format("node_{}->node_{};", id, child_id) <<
+std::endl; return id;
+            },
+            [this](const dara::DecStmt& es) -> std::string {
+                std::string id = this->next_node_id();
+                this->out << std::format("node_{} [label=\"DecStmt\"];", id) <<
+std::endl; std::string child_id = this->next_node_id(); this->out <<
+std::format("node_{} [label=\"var: {}\", shape=house];", child_id, es.name);
+                this->out << std::format("node_{}->node_{};", id, child_id) <<
+std::endl; return id;
+            },
+            [this](const dara::CompoundAssignStmt& stmt) -> std::string {
+                std::string op_str;
+                switch (stmt.op) {
+                    case InfixOperator::Add: op_str = "+="; break;
+                    case InfixOperator::Sub: op_str = "-="; break;
+                    case InfixOperator::Mul: op_str = "*="; break;
+                    case InfixOperator::Div: op_str = "/="; break;
+                    default: op_str = "?="; break;
+                }
+                std::string id = this->next_node_id();
+                this->out << std::format("node_{} [label=\"CompoundAssign( {}
+)\"];", id, op_str) << std::endl; std::string name_id = this->next_node_id();
+                this->out << std::format("node_{} [label=\"var: {}\",
+shape=house];", name_id, stmt.name) << std::endl; this->out <<
+std::format("node_{}->node_{} [label=\"target\"];", id, name_id) << std::endl;
+                std::string val_id = this->visit_expr(stmt.value.get());
+                this->out << std::format("node_{}->node_{} [label=\"value\"];",
+id, val_id) << std::endl; return id;
+            },
+            [this](const dara::SetStmt& ss) -> std::string {
+                std::string id = this->next_node_id();
+                this->out << std::format("node_{} [label=\"SetStmt( .{} )\",
+shape=box];", id, ss.name) << std::endl; if (ss.object) { std::string object_id
+= this->visit_expr(ss.object.get()); this->out << std::format("node_{}->node_{}
+[label=\"object\"];", id, object_id) << std::endl;
+                }
+                if (ss.value) {
+                    std::string value_id = this->visit_expr(ss.value.get());
+                    this->out << std::format("node_{}->node_{}
+[label=\"value\"];", id, value_id) << std::endl;
+                }
+                return id;
+            },
+            [this](const dara::CompoundSetStmt& stmt) -> std::string {
+                std::string id = this->next_node_id();
+                std::string op_str;
+                switch (stmt.op) {
+                    case InfixOperator::Add: op_str = "+="; break;
+                    case InfixOperator::Sub: op_str = "-="; break;
+                    case InfixOperator::Mul: op_str = "*="; break;
+                    case InfixOperator::Div: op_str = "/="; break;
+                    default: op_str = "?="; break;
+                }
+                this->out << std::format("node_{} [label=\"CompoundSet( .{} {}
+)\", shape=box];", id, stmt.name, op_str) << std::endl; std::string obj_id =
+this->visit_expr(stmt.object.get()); this->out << std::format("node_{}->node_{}
+[label=\"object\"];", id, obj_id) << std::endl; std::string val_id =
+this->visit_expr(stmt.value.get()); this->out << std::format("node_{}->node_{}
+[label=\"value\"];", id, val_id) << std::endl; return id;
+            },
+            [this](const dara::BreakStmt& bs) -> std::string {
+                std::string id = this->next_node_id();
+                this->out << std::format("node_{} [label=\"BreakStmt\",
+shape=house];", id) << std::endl; return id;
+            },
+            [this](const dara::ContinueStmt& cs) -> std::string {
+                std::string id = this->next_node_id();
+                this->out << std::format("node_{} [label=\"ContinueStmt\",
+shape=house];", id) << std::endl; return id;
+            },
+            [this](const dara::ReturnStmt& rs) -> std::string {
+                std::string id = this->next_node_id();
+                this->out << std::format("node_{} [label=\"ReturnStmt\",
+shape=house];", id) << std::endl; if (rs.value != nullptr) { std::string id_expr
+= this->visit_expr(rs.value.get()); this->out <<
+std::format("node_{}->node_{};", id, id_expr) << std::endl;
+                }
+                return id;
+            },
+            [this](const auto& s) -> std::string {
+                std::string id = this->next_node_id();
+                this->out << std::format("node_{} [label=\"UnimplementedStmt\",
+color=\"red\", style=\"filled\", fillcolor=\"#ffcccc\"];", id) << std::endl;
+                return id;
+            }},
+        stmt->value);
+    return id;
+}
+*/
+
+// visit_stmt in printer_dot.cpp
+
+std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
 	auto id = std::visit(
 	    overloaded{
-	        [this](const lox::BlockStmt& bs) {
+	        [this](const dara::BlockStmt& bs) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"BlockStmt\"];", id)
 		                  << std::endl;
-		        /* BlockStmt vector for loop */
+		        // BlockStmt vector for loop //
 		        // std::string child_id = this->visit_expr(bs.expr.get());
-		        /* */
+		        // //
 		        for (size_t i = 0; i < bs.declarations.size(); ++i) {
 			        std::string child_id =
 			            this->visit_decl(bs.declarations[i].get());
@@ -264,7 +463,7 @@ std::string DotPrinter::visit_stmt(const lox::Stmt* stmt) {
 
 		        return id;
 	        },
-	        [this](const lox::IfStmt& is) {
+	        [this](const dara::IfStmt& is) {
 		        std::string id = this->next_node_id();
 
 		        this->out << std::format("node_{} [label=\"IfStmt\"];", id)
@@ -286,7 +485,7 @@ std::string DotPrinter::visit_stmt(const lox::Stmt* stmt) {
 		        }
 		        return id;
 	        },
-	        [this](const lox::WhileStmt& ws) {
+	        [this](const dara::WhileStmt& ws) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"WhileStmt\"];", id)
 		                  << std::endl;
@@ -301,7 +500,7 @@ std::string DotPrinter::visit_stmt(const lox::Stmt* stmt) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const lox::ForInStmt& ws) {
+	        [this](const dara::ForInStmt& ws) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"ForInStmt\"];", id)
 		                  << std::endl;
@@ -320,7 +519,7 @@ std::string DotPrinter::visit_stmt(const lox::Stmt* stmt) {
 		        return id;
 	        },
 
-	        [this](const lox::PrintStmt& ps) {
+	        [this](const dara::PrintStmt& ps) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"PrintStmt\"];", id)
 		                  << std::endl;
@@ -329,7 +528,7 @@ std::string DotPrinter::visit_stmt(const lox::Stmt* stmt) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const lox::AssignStmt& as) {
+	        [this](const dara::AssignStmt& as) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"AssignStmt({})\"];",
 		                                 id, as.name)
@@ -340,7 +539,7 @@ std::string DotPrinter::visit_stmt(const lox::Stmt* stmt) {
 		        return id;
 	        },
 
-	        [this](const lox::ExprStmt& es) {
+	        [this](const dara::ExprStmt& es) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"ExprStmt\"];", id)
 		                  << std::endl;
@@ -349,7 +548,7 @@ std::string DotPrinter::visit_stmt(const lox::Stmt* stmt) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const lox::IncStmt& es) {
+	        [this](const dara::IncStmt& es) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"IncStmt\"];", id)
 		                  << std::endl;
@@ -362,7 +561,7 @@ std::string DotPrinter::visit_stmt(const lox::Stmt* stmt) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const lox::DecStmt& es) {
+	        [this](const dara::DecStmt& es) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"DecStmt\"];", id)
 		                  << std::endl;
@@ -374,7 +573,7 @@ std::string DotPrinter::visit_stmt(const lox::Stmt* stmt) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const lox::CompoundAssignStmt& stmt) {
+	        [this](const dara::CompoundAssignStmt& stmt) {
 		        //
 		        std::string op_str;
 		        switch (stmt.op) {
@@ -401,8 +600,8 @@ std::string DotPrinter::visit_stmt(const lox::Stmt* stmt) {
 		        // name
 		        std::string name_id = this->next_node_id();
 		        this->out << std::format(
-		                         "node_{} [label=\"var: {}\" shape=house];", name_id,
-		                         stmt.name)
+		                         "node_{} [label=\"var: {}\" shape=house];",
+		                         name_id, stmt.name)
 		                  << std::endl;
 		        this->out << std::format("node_{}->node_{} [label=\"target\"];",
 		                                 id, name_id)
@@ -414,32 +613,7 @@ std::string DotPrinter::visit_stmt(const lox::Stmt* stmt) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const lox::CompoundSetStmt& cas) {
-		        std::string name_id = this->next_node_id();
-
-                std::string op_str;
-
-                switch(stmt.op) {
-                    case InfixOperator::Add: op_str = "+="; break;
-                    case InfixOperator::Add: op_str = "-="; break;
-                    case InfixOperator::Add: op_str = "*="; break;
-                    case InfixOperator::Add: op_str = "/="; break;
-                    default: op_str = "?="; break;
-                }
-
-		        this->out << std::format("node_{} [label=\".{} {}\"];", id, stmt.name, op_str)
-		                  << std::endl;
-
-		        std::string obj_id = this->visit_expr(stmt.object.get());
-		        this->out << std::format("node_{}->node_{} [label=\"object\"];",
-		                                 id, obj_id)
-		                  << std::endl;
-		        std::string val_id = this->visit_expr(stmt.value.get());
-		        this->out << std::format("node_{}->node_{}[label=\"value\"];",
-		                                 id, val_id)
-		        return id;
-	        },
-	        [this](const lox::SetStmt& ss) {
+	        [this](const dara::SetStmt& ss) {
 		        std::string id = this->next_node_id();
 
 		        // ノード自身のラベルにはプロパティ名（name）を含める
@@ -470,7 +644,47 @@ std::string DotPrinter::visit_stmt(const lox::Stmt* stmt) {
 		        return id;
 	        },
 
-	        [this](const lox::BreakStmt& bs) {
+	        [this](const dara::CompoundSetStmt& stmt) {
+		        std::string id = this->next_node_id();
+
+		        std::string op_str;
+
+		        switch (stmt.op) {
+			        case InfixOperator::Add:
+				        op_str = "+=";
+				        break;
+			        case InfixOperator::Sub:
+				        op_str = "-=";
+				        break;
+			        case InfixOperator::Mul:
+				        op_str = "*=";
+				        break;
+			        case InfixOperator::Div:
+				        op_str = "/=";
+				        break;
+			        default:
+				        op_str = "?=";
+				        break;
+		        }
+
+		        this->out << std::format(
+		                         "node_{} [label=\".{} {}\", shape=box];", id,
+		                         stmt.name, op_str)
+		                  << std::endl;
+		        // object
+		        std::string obj_id = this->visit_expr(stmt.object.get());
+		        this->out << std::format("node_{}->node_{} [label=\"object\"];",
+		                                 id, obj_id)
+		                  << std::endl;
+		        // val
+		        std::string val_id = this->visit_expr(stmt.value.get());
+		        this->out << std::format("node_{}->node_{}[label=\"value\"];",
+		                                 id, val_id)
+		                  << std::endl;
+		        return id;
+	        },
+
+	        [this](const dara::BreakStmt& bs) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format(
 		                         "node_{} [label=\"BreakStmt\", shape=house];",
@@ -479,7 +693,7 @@ std::string DotPrinter::visit_stmt(const lox::Stmt* stmt) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const lox::ContinueStmt& cs) {
+	        [this](const dara::ContinueStmt& cs) {
 		        std::string id = this->next_node_id();
 		        this->out
 		            << std::format(
@@ -487,7 +701,7 @@ std::string DotPrinter::visit_stmt(const lox::Stmt* stmt) {
 		            << std::endl;
 		        return id;
 	        },
-	        [this](const lox::ReturnStmt& rs) {
+	        [this](const dara::ReturnStmt& rs) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format(
 		                         "node_{} [label=\"ReturnStmt\", shape=house];",
@@ -519,11 +733,11 @@ std::string DotPrinter::visit_stmt(const lox::Stmt* stmt) {
 };
 
 // visit_expr in printer_dot.cpp
-std::string DotPrinter::visit_expr(const lox::Expr* expr) {
+std::string DotPrinter::visit_expr(const dara::Expr* expr) {
 	return std::visit(
 	    // overloaded{[this](const IdentifierExpr& expr) {
 	    overloaded{
-	        [this](const lox::VarExpr& expr) {
+	        [this](const dara::VarExpr& expr) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format(
 		                         "node_{} [label=\"var: {}\", shape=house];",
@@ -531,7 +745,7 @@ std::string DotPrinter::visit_expr(const lox::Expr* expr) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const lox::FunctionExpr& expr) {
+	        [this](const dara::FunctionExpr& expr) {
 		        std::string id = this->next_node_id();
 		        std::string params_str = "";
 		        for (size_t i = 0; i < expr.parameters.size(); ++i) {
@@ -571,13 +785,23 @@ std::string DotPrinter::visit_expr(const lox::Expr* expr) {
 
 		        return id;
 	        },
-	        [this](const lox::CallExpr& expr) {
+	        [this](const dara::CallExpr& expr) {
 		        std::string id = this->next_node_id();
-		        this->out << std::format(
-		                         "node_{} [label=\"CallExpr\", shape=house];",
-		                         id)
-		                  << std::endl;
-
+		        if (std::holds_alternative<dara::VarExpr>(expr.callee->value)) {
+			        auto& var_expr = std::get<dara::VarExpr>(expr.callee->value);
+			        if (var_expr.name == "require") {
+				        this->out << std::format(
+				                         "node_{} [label=\"CallExpr\", "
+				                         "shape=house];",
+				                         id)
+				                  << std::endl;
+			        }
+		        } else {
+			        this->out
+			            << std::format(
+			                   "node_{} [label=\"CallExpr\", shape=house];", id)
+			            << std::endl;
+		        }
 		        // 2. Callee (呼ばれる関数/変数) を再帰的にプリント
 		        std::string callee_id = this->visit_expr(expr.callee.get());
 
@@ -585,41 +809,20 @@ std::string DotPrinter::visit_expr(const lox::Expr* expr) {
 		        this->out << std::format("node_{}->node_{} [label=\"callee\"];",
 		                                 id, callee_id)
 		                  << std::endl;
-		        // this->out << std::format("node_{}->node_{};", id, callee_id)
-		        //<< std::endl;
 
-		        // 3. Arguments (引数リスト) を再帰的にプリント
-		        //
-		        // for (size_t i = 0; i < expr.arguments.size(); ++i) {
-		        //
 		        int arg_index = 0;
 		        for (const auto& arg : expr.arguments) {
-			        // std::string arg_id = this->next_node_id();
 			        std::string arg_id = this->visit_expr(arg.get());
 
-			        // this->out << std::format("node_{} [label=\"arg\"];",
-			        // arg_id)
-			        //           << std::endl;
 			        this->out
 			            << std::format("node_{}->node_{} [label=\"arg {}\"];",
 			                           id, arg_id, arg_index)
 			            << std::endl;
 			        arg_index++;
 		        }
-		        /*
-		        for (size_t i = 0; i < expr.arguments.size(); ++i) {
-		            auto arg_res = this->visit_expr(expr.arguments[i].get());
-		            if (arg_res) {
-		                // 第何引数かわかるようにラベルをつける
-		                out << "  " << node_name << " -> " << arg_res.value()
-		                    << " [label=\"arg " << i << "\"];\n";
-		            }
-		        }
-		        */
-
 		        return id;
 	        },
-	        [this](const lox::IntExpr& expr) {
+	        [this](const dara::IntExpr& expr) {
 		        std::string id = this->next_node_id();
 		        this->out
 		            << std::format(
@@ -628,7 +831,17 @@ std::string DotPrinter::visit_expr(const lox::Expr* expr) {
 		            << std::endl;
 		        return id;
 	        },
-	        [this](const lox::CharExpr& expr) {
+	        [this](const dara::DoubleExpr& expr) {
+		        std::string id = this->next_node_id();
+		        this->out
+		            << std::format(
+		                   "node_{} [label=\"double: {}\", shape=house];", id,
+		                   expr.value)
+		            << std::endl;
+		        return id;
+	        },
+
+	        [this](const dara::CharExpr& expr) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format(
 		                         "node_{} [label=\"char {}\", shape=house];",
@@ -636,7 +849,7 @@ std::string DotPrinter::visit_expr(const lox::Expr* expr) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const lox::StringExpr& expr) {
+	        [this](const dara::StringExpr& expr) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format(
 		                         "node_{} [label=\"string: {}\", shape=house];",
@@ -644,7 +857,7 @@ std::string DotPrinter::visit_expr(const lox::Expr* expr) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const lox::BoolExpr& expr) {
+	        [this](const dara::BoolExpr& expr) {
 		        std::string id = this->next_node_id();
 		        this->out
 		            << std::format(
@@ -653,7 +866,7 @@ std::string DotPrinter::visit_expr(const lox::Expr* expr) {
 		            << std::endl;
 		        return id;
 	        },
-	        [this](const lox::ArrayExpr& expr) {
+	        [this](const dara::ArrayExpr& expr) {
 		        std::string id = this->next_node_id();
 
 		        // 1. ArrayExpr 自体のノードを出力
@@ -679,7 +892,7 @@ std::string DotPrinter::visit_expr(const lox::Expr* expr) {
 	        },
 
 	        /*
-	        [this](const lox::CallExpr& expr) {  // dummy
+	        [this](const dara::CallExpr& expr) {  // dummy
 	            std::string id = this->next_node_id();
 	            this->out << std::format(
 	                             "node_{} [label=\"CallExpr\", shape=house];",
@@ -688,7 +901,7 @@ std::string DotPrinter::visit_expr(const lox::Expr* expr) {
 	            return id;
 	        },
 	        */
-	        [this](const lox::IndexExpr& expr) {  // dummy
+	        [this](const dara::IndexExpr& expr) {  // dummy
 		        std::string id = this->next_node_id();
 		        this->out << std::format(
 		                         "node_{} [label=\"IndexExpr\", shape=house];",
@@ -696,8 +909,8 @@ std::string DotPrinter::visit_expr(const lox::Expr* expr) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const lox::GetExpr& ge) {  // dummy
-		        lox::PrintStmt();
+	        [this](const dara::GetExpr& ge) {  // dummy
+		        //dara::PrintStmt();
 		        std::string id = this->next_node_id();
 		        this->out
 		            << std::format(
@@ -713,7 +926,7 @@ std::string DotPrinter::visit_expr(const lox::Expr* expr) {
 		        }
 		        return id;
 	        },
-	        [this](const lox::ThisExpr& expr) {  // dummy
+	        [this](const dara::ThisExpr& expr) {  // dummy
 		        std::string id = this->next_node_id();
 		        this->out << std::format(
 		                         "node_{} [label=\"ThisExpr\", shape=house];",
@@ -722,7 +935,7 @@ std::string DotPrinter::visit_expr(const lox::Expr* expr) {
 		        return id;
 	        },
 
-	        [this](const lox::InfixOpExpr& expr) {
+	        [this](const dara::InfixOpExpr& expr) {
 		        std::string op_str;
 		        switch (expr.op) {
 			        case InfixOperator::Add:  //(***)
@@ -758,6 +971,12 @@ std::string DotPrinter::visit_expr(const lox::Expr* expr) {
 			        case InfixOperator::EqualEqual:
 				        op_str = "==";
 				        break;
+			        case InfixOperator::Is:
+				        op_str = "is";
+				        break;
+			        case InfixOperator::StrictEqual:
+				        op_str = "===";
+				        break;
 			        case InfixOperator::NotEqual:
 				        op_str = "!=";
 				        break;
@@ -778,7 +997,7 @@ std::string DotPrinter::visit_expr(const lox::Expr* expr) {
 
 		        return id;
 	        },
-	        [this](const lox::LogicalOpExpr& expr) {
+	        [this](const dara::LogicalOpExpr& expr) {
 		        std::string op_str;
 		        switch (expr.op) {
 			        case LogicalOperator::And:
@@ -796,7 +1015,7 @@ std::string DotPrinter::visit_expr(const lox::Expr* expr) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const lox::PrefixOpExpr& expr) {
+	        [this](const dara::PrefixOpExpr& expr) {
 		        std::string op_str;
 		        switch (expr.op) {
 			        case PrefixOperator::Pos:
@@ -827,7 +1046,7 @@ std::string DotPrinter::visit_expr(const lox::Expr* expr) {
 
 		        return id;
 	        },
-	        [this](const lox::PostfixOpExpr& expr) {
+	        [this](const dara::PostfixOpExpr& expr) {
 		        std::string op_str;
 		        switch (expr.op) {
 				        /*

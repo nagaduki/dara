@@ -16,9 +16,9 @@
 #define PRINT_LINE() \
 	std::cout << "Line: " << __LINE__ << " (in " << __FILE__ << ")" << std::endl
 
-namespace lox::frontend {
+namespace dara::frontend {
 
-std::expected<std::unique_ptr<lox::Decl>, SyntaxError> Parser::var_decl() {
+std::expected<std::unique_ptr<dara::Decl>, SyntaxError> Parser::var_decl() {
 	int line = this->s->line;
 	int col = this->s->col;
 	auto var_res = identifier(s);
@@ -33,8 +33,8 @@ std::expected<std::unique_ptr<lox::Decl>, SyntaxError> Parser::var_decl() {
 	if (!expr_res) return std::unexpected(expr_res.error());
 
 	if (this->function_depth > 0 &&
-	    // std::holds_alternative<lox::FunctionExpr>(expr_res.value()->value)) {
-	    std::holds_alternative<lox::FunctionExpr>((*expr_res)->value)) {
+	    // std::holds_alternative<dara::FunctionExpr>(expr_res.value()->value)) {
+	    std::holds_alternative<dara::FunctionExpr>((*expr_res)->value)) {
 		return std::unexpected(this->s->make_error(
 		    "cannnot assign a function to a variable insdie a local scope "));
 	}
@@ -45,13 +45,13 @@ std::expected<std::unique_ptr<lox::Decl>, SyntaxError> Parser::var_decl() {
 		    "expected ';' at the end of let statement."));  //(*)
 	}
 
-	return std::make_unique<lox::Decl>(lox::Decl{
-	    .value = lox::VarDecl{var_res.value(), std::move(expr_res.value())},
+	return std::make_unique<dara::Decl>(dara::Decl{
+	    .value = dara::VarDecl{var_res.value(), std::move(expr_res.value())},
 	    .line = line,
 	    .col = col});
 }
 
-std::expected<std::unique_ptr<lox::Decl>, SyntaxError> Parser::fn_decl() {
+std::expected<std::unique_ptr<dara::Decl>, SyntaxError> Parser::fn_decl() {
 	// global check //
 	if (this->function_depth > 0) {
 		return std::unexpected(this->s->make_error(
@@ -93,7 +93,7 @@ std::expected<std::unique_ptr<lox::Decl>, SyntaxError> Parser::fn_decl() {
 		    this->s->make_error("Expected '{' after parameter"));
 	}
 
-	std::vector<std::unique_ptr<lox::Decl>> body;
+	std::vector<std::unique_ptr<dara::Decl>> body;
 
 	FunctionDepthGuard guard(this->function_depth, this->loop_depth);
 
@@ -106,22 +106,22 @@ std::expected<std::unique_ptr<lox::Decl>, SyntaxError> Parser::fn_decl() {
 		body.push_back(std::move(decl_res.value()));
 	}
 
-	auto function_expr = std::make_unique<lox::Expr>();
+	auto function_expr = std::make_unique<dara::Expr>();
 	function_expr->value = FunctionExpr{std::move(parameters), std::move(body)};
 
-	return std::make_unique<lox::Decl>(lox::Decl{
-	    .value = lox::VarDecl{std::move(name), std::move(function_expr)}});
+	return std::make_unique<dara::Decl>(dara::Decl{
+	    .value = dara::VarDecl{std::move(name), std::move(function_expr)}});
 }
 
 // class_decl in parser_decl
-std::expected<std::unique_ptr<lox::Decl>, SyntaxError> Parser::class_decl() {
+std::expected<std::unique_ptr<dara::Decl>, SyntaxError> Parser::class_decl() {
 	auto name_res = identifier(this->s);
 	if (!name_res) {
 		return std::unexpected(this->s->make_error("Expected class name"));
 	}
 
 	std::string class_name = name_res.value();
-	std::unique_ptr<lox::Expr> super = nullptr;
+	std::unique_ptr<dara::Expr> super = nullptr;
 
 	if (Extends(this->s)) {
 		auto super_name_res = identifier(this->s);
@@ -129,22 +129,22 @@ std::expected<std::unique_ptr<lox::Decl>, SyntaxError> Parser::class_decl() {
 			return std::unexpected(this->s->make_error(
 			    "Expected super class name after 'extends'"));
 		}
-		auto var_expr = std::make_unique<lox::Expr>();
-		var_expr->value = lox::VarExpr{.name = super_name_res.value()};
+		auto var_expr = std::make_unique<dara::Expr>();
+		var_expr->value = dara::VarExpr{.name = super_name_res.value()};
 		super = std::move(var_expr);
 	}
 
-	std::vector<std::unique_ptr<lox::Expr>> mixins;
+	std::vector<std::unique_ptr<dara::Expr>> mixins;
 
 	if (With(this->s)) {
 		do {
 			auto mixin_res = identifier(this->s);
 			if (!mixin_res) {
 				return std::unexpected(
-				    this->s->make_error("Expected minin name after 'with'"));
+				    this->s->make_error("Expected mixin name after 'with'"));
 			}
-			auto var_expr = std::make_unique<lox::Expr>();
-			var_expr->value = lox::VarExpr{.name = mixin_res.value()};
+			auto var_expr = std::make_unique<dara::Expr>();
+			var_expr->value = dara::VarExpr{.name = mixin_res.value()};
 			mixins.push_back(std::move(var_expr));
 
 		} while (Comma(this->s));
@@ -156,20 +156,50 @@ std::expected<std::unique_ptr<lox::Decl>, SyntaxError> Parser::class_decl() {
 	}
 
 	std::vector<MethodDecl> methods;
+	std::vector<MethodDecl> static_methods;
 
+	// this->s->skip_whitespace();
 	while (!RBrace(this->s) && !this->s->isEnd()) {
-		if (!Function(this->s)) {
-			return std::unexpected(
-			    this->s->make_error("Expected 'fn' before method declaration"));
+		std::string method_name;
+		bool is_static = false;
+
+		if (Static(this->s)) {
+			is_static = true;
+			// this->s->skip_whitespace();
+			if (!Function(this->s)) {
+				return std::unexpected(this->s->make_error(
+				    "Expected 'fn' before method declaration"));
+			}
+
+			/* method_name_res */
+			auto method_name_res = identifier(this->s);
+			method_name = method_name_res.value();
+
+		} else if (Function(this->s)) {
+			auto method_name_res = identifier(this->s);
+			if (!method_name_res) {
+				return std::unexpected(
+				    this->s->make_error("Expected mathod name after 'fn'"));
+			}
+
+			// std::string method_name = method_name_res.value();
+			method_name = method_name_res.value();
+		} else {
+			auto method_name_res = identifier(this->s);
+			if (!method_name_res) {
+				return std::unexpected(this->s->make_error(
+				    "Expected 'fn', 'static', or constructor declaration"));
+			}
+			method_name = method_name_res.value();
+
+			if (method_name != class_name) {
+				return std::unexpected(this->s->make_error(
+				    "Missing 'fn' for method, or constructor name '" +
+				    method_name + "' does not match class name '" + class_name +
+				    "'"));
+			}
 		}
 
-		auto method_name_res = identifier(this->s);
-		if (!method_name_res) {
-			return std::unexpected(
-			    this->s->make_error("Expected mathod name after 'fn'"));
-		}
-
-		std::string method_name = method_name_res.value();
 		if (!LParen(this->s)) {
 			return std::unexpected(
 			    this->s->make_error("Expected '(' after method name"));
@@ -191,38 +221,47 @@ std::expected<std::unique_ptr<lox::Decl>, SyntaxError> Parser::class_decl() {
 
 		FunctionDepthGuard guard(this->function_depth, this->loop_depth);
 
-		// 🌟 1. 実績のある brace_stmt() に '{ ... }' のパースを丸投げする
+		//  1. 実績のある brace_stmt() に '{ ... }' のパースを丸投げする
 		auto block_res = this->brace_stmt();
 		if (!block_res) {
 			return std::unexpected(block_res.error());
 		}
 
-		// 🌟 2. 返ってきた Stmt から BlockStmt の中身 (vector<Decl>) を抽出する
+		//  2. 返ってきた Stmt から BlockStmt の中身 (vector<Decl>) を抽出する
 		auto* stmt_ptr = block_res.value().get();
 		// std::variant から BlockStmt を取り出す
-		auto& block_stmt = std::get<lox::BlockStmt>(stmt_ptr->value);
+		auto& block_stmt = std::get<dara::BlockStmt>(stmt_ptr->value);
 		// declarations をメソッドの body としてムーブする
-		std::vector<std::unique_ptr<lox::Decl>> body =
+		std::vector<std::unique_ptr<dara::Decl>> body =
 		    std::move(block_stmt.declarations);
 
-		auto fn_expr_node = std::make_unique<lox::Expr>();
+		auto fn_expr_node = std::make_unique<dara::Expr>();
 		fn_expr_node->value =
 		    FunctionExpr{std::move(parameters), std::move(body)};
-
-		methods.push_back(MethodDecl{.name = std::move(method_name),
-		                             .function = std::move(fn_expr_node)});
+		if (is_static) {
+			static_methods.push_back(
+			    MethodDecl{.name = std::move(method_name),
+			               .function = std::move(fn_expr_node)});
+		} else {
+			methods.push_back(MethodDecl{.name = std::move(method_name),
+			                             .function = std::move(fn_expr_node)});
+		}
+		// this->s->skip_whitespace();
 	}
-	auto class_decl_node = lox::ClassDecl{.name = std::move(class_name),
-	                                      .super = std::move(super),
-	                                      .mixins = std::move(mixins),
-	                                      .methods = std::move(methods)};
+
+	auto class_decl_node =
+	    dara::ClassDecl{.name = std::move(class_name),
+	                   .super = std::move(super),
+	                   .mixins = std::move(mixins),
+	                   .methods = std::move(methods),
+	                   .static_methods = std::move(static_methods)};
 
 	// Decl にラップして、std::expected (Result) として返す
-	return std::make_unique<lox::Decl>(
-	    lox::Decl{.value = std::move(class_decl_node)});
+	return std::make_unique<dara::Decl>(
+	    dara::Decl{.value = std::move(class_decl_node)});
 }
 
-std::expected<std::unique_ptr<lox::Decl>, SyntaxError> Parser::decl() {
+std::expected<std::unique_ptr<dara::Decl>, SyntaxError> Parser::decl() {
 	this->s->skip_whitespace();  //(**)
 	TraceGuard trace("parse_decl");
 	Source backup = *s;
@@ -247,14 +286,14 @@ std::expected<std::unique_ptr<lox::Decl>, SyntaxError> Parser::decl() {
 	int line = (*stmt_res)->line;
 	int col = (*stmt_res)->col;
 
-	return std::make_unique<lox::Decl>(
-	    lox::Decl{.value = lox::TopLevelStmt{std::move(stmt_res.value())},
+	return std::make_unique<dara::Decl>(
+	    dara::Decl{.value = dara::TopLevelStmt{std::move(stmt_res.value())},
 	              .line = line,
 	              .col = col});
 }
 
-std::expected<lox::Program, SyntaxError> Parser::program() {
-	std::vector<std::unique_ptr<lox::Decl>> declarations;
+std::expected<dara::Program, SyntaxError> Parser::program() {
+	std::vector<std::unique_ptr<dara::Decl>> declarations;
 
 	while (true) {
 		this->s->skip_whitespace();
@@ -268,14 +307,14 @@ std::expected<lox::Program, SyntaxError> Parser::program() {
 		declarations.push_back(std::move(decl_res.value()));
 	}
 
-	return lox::Program{std::move(declarations)};
+	return dara::Program{std::move(declarations)};
 }
 
-}  // namespace lox::frontend
-//}  // namespace lox::frontend
+}  // namespace dara::frontend
+//}  // namespace dara::frontend
 /*
-std::expected<lox::Program, SyntaxError> __parse_program(Source* s) {
-    std::vector<std::unique_ptr<lox::Decl>> declarations;
+std::expected<dara::Program, SyntaxError> __parse_program(Source* s) {
+    std::vector<std::unique_ptr<dara::Decl>> declarations;
 
     while (true) {
         while (!s->isEnd()) {
@@ -294,11 +333,11 @@ std::expected<lox::Program, SyntaxError> __parse_program(Source* s) {
         declarations.push_back(std::move(decl_res.value()));
     }
 
-    return lox::Program{std::move(declarations)};
+    return dara::Program{std::move(declarations)};
 }
 
-std::expected<lox::Program, SyntaxError> _parse_program(Source* s) {
-    std::vector<std::unique_ptr<lox::Decl>> declarations;
+std::expected<dara::Program, SyntaxError> _parse_program(Source* s) {
+    std::vector<std::unique_ptr<dara::Decl>> declarations;
 
     while (!s->isEnd()) {
         auto decl_res = parse_decl(s);
@@ -308,13 +347,13 @@ std::expected<lox::Program, SyntaxError> _parse_program(Source* s) {
         declarations.push_back(std::move(decl_res.value()));
     }
 
-    return lox::Program{std::move(declarations)};
+    return dara::Program{std::move(declarations)};
 }
 */
 /* parse_program */
 /*
-std::expected<std::unique_ptr<lox::Decl>, SyntaxError>
-_parse_program(Source* s) { std::vector<std::unique_ptr<lox::Decl>>
+std::expected<std::unique_ptr<dara::Decl>, SyntaxError>
+_parse_program(Source* s) { std::vector<std::unique_ptr<dara::Decl>>
 declarations;
 
     while (!s->isEnd()) {
@@ -327,8 +366,8 @@ declarations;
         declarations.push_back(std::move(decl_res.value()));
     }
 
-    return std::make_unique<lox::Decl>(
-        lox::Decl{
-lox::Program{std::move(declarations)}, 1, 1});
+    return std::make_unique<dara::Decl>(
+        dara::Decl{
+dara::Program{std::move(declarations)}, 1, 1});
 }
 */

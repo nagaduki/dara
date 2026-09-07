@@ -11,8 +11,8 @@ struct overloaded : Ts... {
 template <class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
-std::string lox::Expr::to_string() const {
-//std::string lox::Expr::to_string() {
+std::string dara::Expr::to_string() const {
+//std::string dara::Expr::to_string() {
 	StringPrinter printer;
 	return printer.print(this);
 }

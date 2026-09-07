@@ -9,10 +9,10 @@
 #include "callable.hpp"
 #include "interpreter.hpp"
 
-namespace lox::backend {
+namespace dara::backend {
 
-Result<lox::Value> Function::call(Interpreter& interpreter,
-                                  const std::vector<lox::Value>& arguments) {
+Result<dara::Value> Function::call(Interpreter& interpreter,
+                                  const std::vector<dara::Value>& arguments) {
 	auto local_env = std::make_shared<Environment>(this->closure);
 
 	for (size_t i = 0; i < declaration->parameters.size(); ++i) {
@@ -36,12 +36,12 @@ Result<lox::Value> Function::call(Interpreter& interpreter,
 
 		interpreter.set_environment(previous_env);
 
-	} catch (const lox::backend::ReturnException& ret) {
+	} catch (const dara::backend::ReturnException& ret) {
 		interpreter.set_environment(previous_env);
 		return ret.value;
 	}
 
-	return lox::Value{std::monostate{}};
+	return dara::Value{std::monostate{}};
 }
 
-}  // namespace lox::backend
+}  // namespace dara::backend

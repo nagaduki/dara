@@ -5,14 +5,14 @@
 
 #include "value.hpp"
 
-namespace lox::backend {
+namespace dara::backend {
 struct ReturnException : public std::exception {
-	lox::Value value;
+	dara::Value value;
 
-	explicit ReturnException(lox::Value value) : value(std::move(value)) {}
+	explicit ReturnException(dara::Value value) : value(std::move(value)) {}
 };
 
 class BreakException : public std::exception {};
 class ContinueException : public std::exception {};
 
-}  // namespace lox::backend
+}  // namespace dara::backend

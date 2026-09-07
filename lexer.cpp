@@ -110,7 +110,8 @@ Rule<std::string> string_literal =
 	// auto string_parser = token(many1(letter));
 	// auto string_parser = token(DQuote + many1(letter) + DQuote );
 	// auto string_parser = token(DQuote + many1(anyBut('"')) + DQuote );
-	auto string_parser = token(DQuote >> many1(anyBut('"')) << DQuote);
+	//auto string_parser = token(DQuote >> many1(anyBut('"')) << DQuote);
+	auto string_parser = token(char1('"') >> many1(anyBut('"')) << char1('"'));
 
 	auto res = string_parser(s);
 	if (!res) {
@@ -143,6 +144,28 @@ Rule<int> integer_literal = [](Source* s) -> std::expected<int, SyntaxError> {
 	    });
 };
 
+Rule<double> double_literal = [](Source* s) -> std::expected<double, SyntaxError> {
+	Source backup = *s;
+
+	//auto digits_parser = token(many1(digit));
+	auto double_parser = token(many1(digit) + char1('.') + many1(digit));
+
+	return double_parser(s).and_then(
+	    [&](const std::string& str) -> std::expected<double, SyntaxError> {
+		    try {
+			    double val = std::stod(str);
+			    return val;
+		    } catch (const std::out_of_range& e) {
+			    *s = backup;
+			    return std::unexpected(s->make_error("number too large"));
+		    } catch (const std::invalid_argument& e) {
+			    *s = backup;
+			    return std::unexpected(s->make_error("invalid number format"));
+		    }
+	    });
+};
+
+
 /*
 Rule<std::string> identifier =
     token([](Source* s) -> std::expected<std::string, SyntaxError> {
@@ -174,6 +197,7 @@ Rule<std::string> identifier =
 /* for stmt */
 Rule<std::string> keyword(const std::string& kw) {
 	return [=](Source* s) -> std::expected<std::string, SyntaxError> {
+        s->skip_whitespace();
 		Source backup = *s;
 
 		auto res = string1(kw)(s);
@@ -193,7 +217,8 @@ Rule<std::string> keyword(const std::string& kw) {
 				}
 			}
 		}
-		auto space_res = spaces(s);
+		//auto space_res = spaces(s);
+        s->skip_whitespace();
 		return res;
 	};
 }

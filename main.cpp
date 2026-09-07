@@ -27,36 +27,16 @@ void run_file(const char* file_path) {
 	std::string source_code = buffer.str();
 
 	Source s(source_code.c_str());
-	lox::frontend::Parser p(&s);
-	lox::backend::Interpreter interpreter;
-
-	/*
-	lox::Program program;
-	while (!s.isEnd()) {
-	    s.skip_whitespace();
-	    spaces(&s);
-	    if (s.isEnd()) {
-	        break;
-	    }
-
-	    auto res = p.decl();
-	    // auto res = parser.program();
-	    if (!res.has_value()) {
-	        std::cerr << "Error: " << res.error().message << "\n";
-	        program.declarations.clear();
-	        // continue;
-	        break;
-	    }
-	    program.declarations.push_back(std::move(res.value()));
-	}
-	*/
+	dara::frontend::Parser p(&s);
+	dara::backend::Interpreter interpreter;
+    interpreter.dir_stack.push_back(std::filesystem::absolute(file_path).parent_path());
 
 	auto program_res = p.program();
 	if (!program_res) {
 		std::cerr << "syntax error: " << program_res.error().message << "\n";
 		return;
 	}
-	lox::Program program = std::move(program_res.value());
+	dara::Program program = std::move(program_res.value());
 
 	std::string dot_result = dotprinter.print(&program);
 	auto save_res =
@@ -79,7 +59,8 @@ void run_file(const char* file_path) {
 	}
 }
 void run_repl() {
-	lox::backend::Interpreter interpreter;
+	dara::backend::Interpreter interpreter;
+    interpreter.dir_stack.push_back(std::filesystem::current_path());
 	// DotPrinter printer;
 	linenoise::SetHistoryMaxLen(100);
 	std::string file_name = "main_repl";
@@ -110,9 +91,9 @@ void run_repl() {
 
 		try {
 			Source s(input.c_str());
-			lox::frontend::Parser parser(&s);
-			// std::vector<std::unique_ptr<lox::Decl>> program_ast;
-			lox::Program program;
+			dara::frontend::Parser parser(&s);
+			// std::vector<std::unique_ptr<dara::Decl>> program_ast;
+			dara::Program program;
 			// auto res = parse_expr(&s);
 
 			/* main loop */
@@ -193,7 +174,7 @@ int main(int argc, char* argv[]) {
 	} else if (argc == 2) {
 		run_file(argv[1]);
 	} else {
-		std::cerr << "Usage: cpplox [script_file]" << std::endl;
+		std::cerr << "Usage: cppdara [script_file]" << std::endl;
 		return 64;
 	}
 	return 0;

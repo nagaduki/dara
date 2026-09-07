@@ -1,6 +1,6 @@
 /* combinator.hpp */
 
-#pragma once  // インクルードガードのモダンな書き方
+#pragma once  
 #include <expected>
 #include <functional>
 #include <string>

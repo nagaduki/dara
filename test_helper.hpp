@@ -1,3 +1,4 @@
+/* test_helper.hpp */
 #pragma once
 #include <memory>
 #include <string>
@@ -6,53 +7,54 @@
 #include "doctest.h"
 #include "interpreter.hpp"
 #include "parser.hpp"
+#include "builtin.hpp"
 // #include "declaration.hpp"
 
-inline lox::Expr make_int(int v) { return lox::Expr{lox::IntExpr{v}, 1, 1}; }
+inline dara::Expr make_int(int v) { return dara::Expr{dara::IntExpr{v}, 1, 1}; }
 
-inline lox::Expr make_str(const std::string& s) {
-	return lox::Expr{lox::StringExpr{s}, 1, 1};
+inline dara::Expr make_str(const std::string& s) {
+	return dara::Expr{dara::StringExpr{s}, 1, 1};
 }
 
-inline lox::Expr make_infix(InfixOperator op, lox::Expr lhs, lox::Expr rhs) {
-	return lox::Expr{
-	    lox::InfixOpExpr{op, std::make_unique<lox::Expr>(std::move(lhs)),
-	                     std::make_unique<lox::Expr>(std::move(rhs))},
+inline dara::Expr make_infix(InfixOperator op, dara::Expr lhs, dara::Expr rhs) {
+	return dara::Expr{
+	    dara::InfixOpExpr{op, std::make_unique<dara::Expr>(std::move(lhs)),
+	                     std::make_unique<dara::Expr>(std::move(rhs))},
 	    1, 1};
 }
 
-inline lox::Expr make_prefix(PrefixOperator op, lox::Expr rhs) {
-	return lox::Expr{
-	    lox::PrefixOpExpr{op, std::make_unique<lox::Expr>(std::move(rhs))}, 1,
+inline dara::Expr make_prefix(PrefixOperator op, dara::Expr rhs) {
+	return dara::Expr{
+	    dara::PrefixOpExpr{op, std::make_unique<dara::Expr>(std::move(rhs))}, 1,
 	    1};
 }
 
-inline lox::Expr make_postfix(PostfixOperator op, lox::Expr lhs) {
-	return lox::Expr{
-	    lox::PostfixOpExpr{op, std::make_unique<lox::Expr>(std::move(lhs))}, 1,
+inline dara::Expr make_postfix(PostfixOperator op, dara::Expr lhs) {
+	return dara::Expr{
+	    dara::PostfixOpExpr{op, std::make_unique<dara::Expr>(std::move(lhs))}, 1,
 	    1};
 }
 
 // 今回追加した Stmt/Decl 用のヘルパー
-inline lox::Decl make_var_decl(const std::string& name, lox::Expr init) {
-	return lox::Decl{
-	    lox::VarDecl{name, std::make_unique<lox::Expr>(std::move(init))}, 1, 1};
+inline dara::Decl make_var_decl(const std::string& name, dara::Expr init) {
+	return dara::Decl{
+	    dara::VarDecl{name, std::make_unique<dara::Expr>(std::move(init))}, 1, 1};
 }
 
-inline lox::Decl make_print_decl(lox::Expr expr) {
-	return lox::Decl{
-	    lox::TopLevelStmt{std::make_unique<lox::Stmt>(lox::Stmt{
-	        lox::PrintStmt{std::make_unique<lox::Expr>(std::move(expr))}, 1,
+inline dara::Decl make_print_decl(dara::Expr expr) {
+	return dara::Decl{
+	    dara::TopLevelStmt{std::make_unique<dara::Stmt>(dara::Stmt{
+	        dara::PrintStmt{std::make_unique<dara::Expr>(std::move(expr))}, 1,
 	        1})},
 	    1, 1};
 }
 
 // test_helper.hpp (新規作成)
-namespace lox::test {
-lox::backend::Interpreter run_code(const std::string& code) {
+namespace dara::test {
+dara::backend::Interpreter run_code(const std::string& code) {
 	Source source(code.c_str());
-	lox::frontend::Parser parser(&source);
-	lox::backend::Interpreter interpreter;
+	dara::frontend::Parser parser(&source);
+	dara::backend::Interpreter interpreter;
 
 	auto program_res = parser.program();
 	if (!program_res) {
@@ -65,4 +67,4 @@ lox::backend::Interpreter run_code(const std::string& code) {
 
 	return interpreter;
 }
-}  // namespace lox::test
+}  // namespace dara::test

@@ -10,16 +10,16 @@
 //#include "instance.hpp"
 
 
-namespace lox::backend {
+namespace dara::backend {
     class Callable;
 }
 
-namespace lox::runtime {
+namespace dara::runtime {
     class Class;
     class Instance;
 }
 
-namespace lox {
+namespace dara {
 
 namespace backend {
 class Callable;
@@ -37,13 +37,13 @@ struct Range {
 	}
 };
 
-using ValueData = std::variant<char, int, std::string, bool, Range,
+using ValueData = std::variant<char, int, double, std::string, bool, Range,
                                //
                                std::vector<Value>,
                                //
-                               std::shared_ptr<lox::backend::Callable>,
-                               std::shared_ptr<lox::runtime::Class>,
-                               std::shared_ptr<lox::runtime::Instance>,
+                               std::shared_ptr<dara::backend::Callable>,
+                               std::shared_ptr<dara::runtime::Class>,
+                               std::shared_ptr<dara::runtime::Instance>,
                                //
                                std::monostate>;
 
@@ -66,4 +66,4 @@ struct Value {
 	//std::string to_string() const;
 };
 
-}  // namespace lox
+}  // namespace dara

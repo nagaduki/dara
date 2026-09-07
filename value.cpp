@@ -1,6 +1,7 @@
 // value.cpp
-#pragma once
+// #pragma once
 #include <memory>
+#include <sstream>
 #include <string>
 #include <variant>
 
@@ -21,11 +22,17 @@ overloaded(Ts...) -> overloaded<Ts...>;
 
 // using EvalValue = std::variant<char, int, std::string>;
 
-namespace lox::backend {
+namespace dara::backend {
 
-std::string to_string(const lox::Value& val) {
+std::string to_string(const dara::Value& val) {
 	return std::visit(
 	    overloaded{[](int v) { return std::to_string(v); },
+	               [](double v) {
+		               std::ostringstream oss;
+		               oss << v;
+		               return oss.str();
+		               // return std::to_string(v);
+	               },
 	               [](const std::string& v) { return v; },
 	               [](char v) { return std::string(1, v); },
 	               [](bool v) {
@@ -36,7 +43,7 @@ std::string to_string(const lox::Value& val) {
 		               }
 	               },
 	               [](std::monostate) { return std::string("nil"); },
-	               [](const std::vector<lox::Value>& arr) -> std::string {
+	               [](const std::vector<dara::Value>& arr) -> std::string {
 		               std::string s = "[";
 		               for (size_t i = 0; i < arr.size(); ++i) {
 			               s += backend::to_string(arr[i]);  //(*)
@@ -47,10 +54,10 @@ std::string to_string(const lox::Value& val) {
 		               s += "]";
 		               return s;
 	               },
-	               [](std::shared_ptr<lox::backend::Callable> c) {
+	               [](std::shared_ptr<dara::backend::Callable> c) {
 		               return c->to_string();
 	               },
-	               [](const lox::Range& r) {
+	               [](const dara::Range& r) {
 		               return std::to_string(r.start) + ".." +
 		                      std::to_string(r.end);
 	               },
@@ -58,4 +65,4 @@ std::string to_string(const lox::Value& val) {
 	    val.data);
 }
 
-}  // namespace lox::backend
+}  // namespace dara::backend

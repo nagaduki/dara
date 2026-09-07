@@ -12,7 +12,7 @@
 #include "lexer.hpp"
 // #include "logger.hpp"
 
-namespace lox::frontend {
+namespace dara::frontend {
 
 class Parser {
    private:
@@ -66,105 +66,106 @@ class Parser {
 	                                                           //
 	std::expected<MixfixOperator, SyntaxError> mixfix_op();    //
 
-	std::unique_ptr<lox::Expr> make_atom(int value);
-	std::unique_ptr<lox::Expr> make_atom(char value);
-	std::unique_ptr<lox::Expr> make_atom(std::string value);
-	std::unique_ptr<lox::Expr> make_atom(bool value);
-	std::unique_ptr<lox::Expr> make_cons(InfixOperator op,
-	                                     std::unique_ptr<lox::Expr> lhs,
-	                                     std::unique_ptr<lox::Expr> rhs);
-	std::unique_ptr<lox::Expr> make_cons(PrefixOperator op,
-	                                     std::unique_ptr<lox::Expr> rhs);
-	std::unique_ptr<lox::Expr> make_cons(PostfixOperator op,
-	                                     std::unique_ptr<lox::Expr> lhs);
-	std::expected<std::unique_ptr<lox::Expr>, SyntaxError> apply_infix(
-	    InfixOperator op, std::unique_ptr<lox::Expr> lhs,
-	    std::unique_ptr<lox::Expr> rhs, Source* s);
+	std::unique_ptr<dara::Expr> make_atom(int value);
+	std::unique_ptr<dara::Expr> make_atom(double value);
+	std::unique_ptr<dara::Expr> make_atom(char value);
+	std::unique_ptr<dara::Expr> make_atom(std::string value);
+	std::unique_ptr<dara::Expr> make_atom(bool value);
+	std::unique_ptr<dara::Expr> make_cons(InfixOperator op,
+	                                     std::unique_ptr<dara::Expr> lhs,
+	                                     std::unique_ptr<dara::Expr> rhs);
+	std::unique_ptr<dara::Expr> make_cons(PrefixOperator op,
+	                                     std::unique_ptr<dara::Expr> rhs);
+	std::unique_ptr<dara::Expr> make_cons(PostfixOperator op,
+	                                     std::unique_ptr<dara::Expr> lhs);
+	std::expected<std::unique_ptr<dara::Expr>, SyntaxError> apply_infix(
+	    InfixOperator op, std::unique_ptr<dara::Expr> lhs,
+	    std::unique_ptr<dara::Expr> rhs, Source* s);
 
 	/* parse series functions. */
-	std::expected<std::unique_ptr<lox::Expr>, SyntaxError> expr(int min_bp = 0);
+	std::expected<std::unique_ptr<dara::Expr>, SyntaxError> expr(int min_bp = 0);
 
-	std::expected<std::unique_ptr<lox::Expr>, SyntaxError> prefix_expr();
+	std::expected<std::unique_ptr<dara::Expr>, SyntaxError> prefix_expr();
 
-	std::expected<std::unique_ptr<lox::Expr>, SyntaxError> mixfix_expr(
-	    MixfixOperator op, std::unique_ptr<lox::Expr> lhs);
+	std::expected<std::unique_ptr<dara::Expr>, SyntaxError> mixfix_expr(
+	    MixfixOperator op, std::unique_ptr<dara::Expr> lhs);
 
-	std::expected<std::unique_ptr<lox::Expr>, SyntaxError> call_expr(
-	    std::unique_ptr<lox::Expr>);
+	std::expected<std::unique_ptr<dara::Expr>, SyntaxError> call_expr(
+	    std::unique_ptr<dara::Expr>);
 
-	std::expected<std::unique_ptr<lox::Expr>, SyntaxError> index_expr(
-	    std::unique_ptr<lox::Expr>);
+	std::expected<std::unique_ptr<dara::Expr>, SyntaxError> index_expr(
+	    std::unique_ptr<dara::Expr>);
 
-	std::expected<std::unique_ptr<lox::Expr>, SyntaxError> paren_expr();
+	std::expected<std::unique_ptr<dara::Expr>, SyntaxError> paren_expr();
 
-	std::expected<std::unique_ptr<lox::Expr>, SyntaxError> bracket_expr();
+	std::expected<std::unique_ptr<dara::Expr>, SyntaxError> bracket_expr();
 
-	std::expected<std::unique_ptr<lox::Expr>, SyntaxError> dotdot_expr();
+	std::expected<std::unique_ptr<dara::Expr>, SyntaxError> dotdot_expr();
 
-	std::expected<std::unique_ptr<lox::Expr>, SyntaxError> atom_expr();
+	std::expected<std::unique_ptr<dara::Expr>, SyntaxError> atom_expr();
 
-	std::expected<std::unique_ptr<lox::Expr>, SyntaxError> fn_expr();
+	std::expected<std::unique_ptr<dara::Expr>, SyntaxError> fn_expr();
 
-	std::expected<std::unique_ptr<lox::Expr>, SyntaxError> this_expr();
+	std::expected<std::unique_ptr<dara::Expr>, SyntaxError> this_expr();
 
-    std::expected<std::unique_ptr<lox::Expr>, SyntaxError> dot_expr(std::unique_ptr<lox::Expr> left);
-	//std::expected<std::unique_ptr<lox::Expr>, SyntaxError> dot_expr();
+    std::expected<std::unique_ptr<dara::Expr>, SyntaxError> dot_expr(std::unique_ptr<dara::Expr> left);
+	//std::expected<std::unique_ptr<dara::Expr>, SyntaxError> dot_expr();
 
-	std::expected<std::unique_ptr<lox::Expr>, SyntaxError> nud();
+	std::expected<std::unique_ptr<dara::Expr>, SyntaxError> nud();
 
-	std::expected<std::unique_ptr<lox::Expr>, SyntaxError> identifier_expr();
+	std::expected<std::unique_ptr<dara::Expr>, SyntaxError> identifier_expr();
 
-	std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> stmt();
+	std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> stmt();
 
-	std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> assign_stmt(
-	    std::unique_ptr<lox::Expr> lhs);
+	std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> assign_stmt(
+	    std::unique_ptr<dara::Expr> lhs);
 
-	std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> add_assign_stmt(
-	    std::unique_ptr<lox::Expr> lhs);
+	std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> add_assign_stmt(
+	    std::unique_ptr<dara::Expr> lhs);
 
-	std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> compound_assign_stmt(
-	    std::unique_ptr<lox::Expr> lhs, InfixOperator op);
+	std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> compound_assign_stmt(
+	    std::unique_ptr<dara::Expr> lhs, InfixOperator op);
 
-	std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> print_stmt();
+	std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> print_stmt();
 
-	//std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> assign_stmt();
+	//std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> assign_stmt();
 
-	// std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> expr_stmt();
-	std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> expr_stmt(
-	    std::unique_ptr<lox::Expr> expr);
+	// std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> expr_stmt();
+	std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> expr_stmt(
+	    std::unique_ptr<dara::Expr> expr);
 
-	std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> brace_stmt();
+	std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> brace_stmt();
 
-	std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> else_stmt();
+	std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> else_stmt();
 
-	std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> if_stmt();
+	std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> if_stmt();
 
-	std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> inc_stmt(
-	    std::unique_ptr<lox::Expr> expr);
+	std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> inc_stmt(
+	    std::unique_ptr<dara::Expr> expr);
 
-	std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> dec_stmt(
-	    std::unique_ptr<lox::Expr> expr);
+	std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> dec_stmt(
+	    std::unique_ptr<dara::Expr> expr);
 
-	std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> return_stmt();
+	std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> return_stmt();
 
-	std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> break_stmt();
+	std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> break_stmt();
 
-	std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> continue_stmt();
+	std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> continue_stmt();
 
 
-	std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> while_stmt();
+	std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> while_stmt();
 
-	std::expected<std::unique_ptr<lox::Stmt>, SyntaxError> forin_stmt();
+	std::expected<std::unique_ptr<dara::Stmt>, SyntaxError> forin_stmt();
 
-	std::expected<std::unique_ptr<lox::Decl>, SyntaxError> var_decl();
+	std::expected<std::unique_ptr<dara::Decl>, SyntaxError> var_decl();
 
-	std::expected<std::unique_ptr<lox::Decl>, SyntaxError> fn_decl();
+	std::expected<std::unique_ptr<dara::Decl>, SyntaxError> fn_decl();
 
-	std::expected<std::unique_ptr<lox::Decl>, SyntaxError> class_decl();
+	std::expected<std::unique_ptr<dara::Decl>, SyntaxError> class_decl();
 
-	std::expected<std::unique_ptr<lox::Decl>, SyntaxError> decl();
+	std::expected<std::unique_ptr<dara::Decl>, SyntaxError> decl();
 
-	std::expected<lox::Program, SyntaxError> program();
+	std::expected<dara::Program, SyntaxError> program();
 };
 
-}  // namespace lox::frontend
+}  // namespace dara::frontend

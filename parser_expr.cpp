@@ -24,7 +24,7 @@ struct overloaded : Ts... {
 template <class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
-namespace lox::frontend {
+namespace dara::frontend {
 // namespace {
 
 static constexpr InfixRule infix_rules[] = {
@@ -59,6 +59,20 @@ static constexpr InfixRule infix_rules[] = {
 	                                  std::move(r)};
                }}},
     // --- 比較演算 ---
+    //
+    //
+    InfixRule{InfixOperator::Is,
+              {50, 51,
+               [](ExprPtr l, ExprPtr r) -> ExprValue {
+	               return InfixOpExpr{InfixOperator::Is, std::move(l),
+	                                  std::move(r)};
+               }}},
+    InfixRule{InfixOperator::StrictEqual,
+              {40, 41,  //  == や != と同じ強さ！
+               [](ExprPtr l, ExprPtr r) -> ExprValue {
+	               return InfixOpExpr{InfixOperator::StrictEqual, std::move(l),
+	                                  std::move(r)};
+               }}},
     InfixRule{InfixOperator::EqualEqual,
               {40, 41,
                [](ExprPtr l, ExprPtr r) -> ExprValue {
@@ -277,15 +291,16 @@ std::expected<InfixOperator, SyntaxError> Parser::infix_op()
 //-> std::expected<InfixOperator, SyntaxError>
 {
 	// std::expected<InfixOperator, SyntaxError> Parser::infix_op() {
-    /*
-    Source backup = *(this->s);
+	/*
+	Source backup = *(this->s);
 	if (sym("++")(this->s) || sym("--")(this->s)) {
-		*(this->s) = backup;
-		return std::unexpected(
-		    this->s->make_error("++ and -- are not infix operators"));  //(***)
+	    *(this->s) = backup;
+	    return std::unexpected(
+	        this->s->make_error("++ and -- are not infix operators"));  //(***)
 	}
-    */
+	*/
 
+	// statement
 	Source backup = *(this->s);
 	if (sym("++")(this->s) || sym("--")(this->s) || sym("+=")(this->s) ||
 	    sym("-=")(this->s) || sym("*=")(this->s) || sym("/=")(this->s)) {
@@ -297,8 +312,8 @@ std::expected<InfixOperator, SyntaxError> Parser::infix_op()
 	// auto res = (sym('+') || sym('-') || sym('*') || sym('/') || sym('^') ||
 	//             sym('=') || sym('<') || sym('>') )(this->s);
 	auto res =
-	    (sym("<=") || sym(">=") || sym("==") || sym("!=") || sym("and") ||
-	     sym("or") || sym("..") || sym("+") || sym("-") || sym("*") ||
+	    (sym("<=") || sym(">=") || StrictEqual || sym("==") || sym("!=") ||
+	     Is || And || Or || sym("..") || sym("+") || sym("-") || sym("*") ||
 	     sym("/") || sym("^") || sym("=") || sym("<") || sym(">"))(this->s);
 	// auto res = (Add || Sub || Mul || Div)(s);
 	if (!res) {
@@ -317,9 +332,11 @@ std::expected<InfixOperator, SyntaxError> Parser::infix_op()
 	if (op == "<=") return InfixOperator::LessEqual;
 	if (op == ">=") return InfixOperator::GreaterEqual;
 	if (op == "==") return InfixOperator::EqualEqual;
+	if (op == "===") return InfixOperator::StrictEqual;
 	if (op == "!=") return InfixOperator::NotEqual;
 	if (op == "and") return InfixOperator::And;
 	if (op == "or") return InfixOperator::Or;
+	if (op == "is") return InfixOperator::Is;
 	if (op == "..") return InfixOperator::Range;
 	//	if (op == '=') return InfixOperator::Assign;
 
@@ -330,6 +347,8 @@ std::expected<InfixOperator, SyntaxError> Parser::infix_op()
 
 std::expected<PrefixOperator, SyntaxError> Parser::prefix_op() {
 	Source backup = *(this->s);
+
+	// statement
 	if (sym("++")(this->s) || sym("--")(this->s)) {
 		*(this->s) = backup;
 		return std::unexpected(
@@ -348,7 +367,19 @@ std::expected<PrefixOperator, SyntaxError> Parser::prefix_op() {
 	if (op == "++") return PrefixOperator::Inc;
 	if (op == "--") return PrefixOperator::Dec;
 	*/
-	if (op == "!") return PrefixOperator::Not;
+	// if (op == "!") return PrefixOperator::Not;
+	if (op == "!") {
+		// 🌟 ここを追加
+		if (auto peek_res = this->s->peek()) {
+			if (peek_res.value() == '=') {
+				*(this->s) = backup;
+				return std::unexpected(
+				    this->s->make_error("this is '!=', not prefix '!'"));
+			}
+		}
+		return PrefixOperator::Not;
+	}
+
 	if (op == "-") return PrefixOperator::Neg;
 	if (op == "+") return PrefixOperator::Pos;
 
@@ -357,9 +388,33 @@ std::expected<PrefixOperator, SyntaxError> Parser::prefix_op() {
 	return std::unexpected(this->s->make_error("unknown prefix operator"));
 }
 
+/*
+std::expected<PostfixOperator, SyntaxError> Parser::postfix_op() {
+    Source backup = *(this->s);
+    // auto res = (string1("++") || string1("--") || string1("!"))(this->s);
+    // statement
+    if (sym("++")(this->s) || sym("--")(this->s)) {
+        *(this->s) = backup;
+        return std::unexpected(
+            this->s->make_error("++ and -- are not infix operators"));
+    }
+
+    auto res = (string1("!"))(this->s);
+    if (!res) {
+        return std::unexpected(res.error());
+    }
+    std::string op = res.value();
+    if (op == "!") return PostfixOperator::Fac;
+
+    *s = backup;
+
+    return std::unexpected(this->s->make_error("unknown postfix operator"));
+}
+*/
 std::expected<PostfixOperator, SyntaxError> Parser::postfix_op() {
 	Source backup = *(this->s);
 	// auto res = (string1("++") || string1("--") || string1("!"))(this->s);
+	// statement
 	if (sym("++")(this->s) || sym("--")(this->s)) {
 		*(this->s) = backup;
 		return std::unexpected(
@@ -371,11 +426,20 @@ std::expected<PostfixOperator, SyntaxError> Parser::postfix_op() {
 		return std::unexpected(res.error());
 	}
 	std::string op = res.value();
-	/*
-	if (op == "++") return PostfixOperator::Inc;
-	if (op == "--") return PostfixOperator::Dec;
-	*/
-	if (op == "!") return PostfixOperator::Fac;
+	// if (op == "!") return PostfixOperator::Fac;
+
+	if (op == "!") {
+		//  ここを追加：直後の文字が '=' なら、これは '!='
+		// なので巻き戻して諦める！
+		if (auto peek_res = this->s->peek()) {
+			if (peek_res.value() == '=') {
+				*(this->s) = backup;
+				return std::unexpected(
+				    this->s->make_error("this is '!=', not postfix '!'"));
+			}
+		}
+		return PostfixOperator::Fac;  // '=' でなければ無事に階乗として処理
+	}
 
 	*s = backup;
 
@@ -403,72 +467,80 @@ std::expected<MixfixOperator, SyntaxError> Parser::mixfix_op() {
 	return std::unexpected(this->s->make_error("unknown mixfix operator"));
 }
 
-std::unique_ptr<lox::Expr> Parser::make_atom(int value) {
+std::unique_ptr<dara::Expr> Parser::make_atom(int value) {
 	// int line = this->s->line;
 	// int col = this->s->col;
 
-	return std::make_unique<lox::Expr>(lox::Expr{
-	    .value = lox::IntExpr{value},
+	return std::make_unique<dara::Expr>(dara::Expr{
+	    .value = dara::IntExpr{value},
 	    //.line = line,
 	    //.col = col,
 	});
 }
 
-std::unique_ptr<lox::Expr> Parser::make_atom(char value) {
-	return std::make_unique<lox::Expr>(lox::Expr{lox::CharExpr{value}});
+std::unique_ptr<dara::Expr> Parser::make_atom(double value) {
+
+	return std::make_unique<dara::Expr>(dara::Expr{
+	    .value = dara::DoubleExpr{value},
+	});
+}
+
+
+std::unique_ptr<dara::Expr> Parser::make_atom(char value) {
+	return std::make_unique<dara::Expr>(dara::Expr{dara::CharExpr{value}});
 }
 
 /* make_atom for std::string */
-std::unique_ptr<lox::Expr> Parser::make_atom(std::string value) {
-	return std::make_unique<lox::Expr>(lox::Expr{lox::StringExpr{value}});
+std::unique_ptr<dara::Expr> Parser::make_atom(std::string value) {
+	return std::make_unique<dara::Expr>(dara::Expr{dara::StringExpr{value}});
 }
 
 /* make_atom for bool */
-std::unique_ptr<lox::Expr> Parser::make_atom(bool value) {
-	return std::make_unique<lox::Expr>(lox::Expr{
-	    lox::BoolExpr{value},
+std::unique_ptr<dara::Expr> Parser::make_atom(bool value) {
+	return std::make_unique<dara::Expr>(dara::Expr{
+	    dara::BoolExpr{value},
 	    // line, col の情報も必要であればここに付与
 	});
 }
 
-std::unique_ptr<lox::Expr> Parser::make_cons(PrefixOperator op,
-                                             std::unique_ptr<lox::Expr> rhs) {
-	return std::make_unique<lox::Expr>(
-	    lox::Expr{lox::PrefixOpExpr{op, std::move(rhs)}});
+std::unique_ptr<dara::Expr> Parser::make_cons(PrefixOperator op,
+                                             std::unique_ptr<dara::Expr> rhs) {
+	return std::make_unique<dara::Expr>(
+	    dara::Expr{dara::PrefixOpExpr{op, std::move(rhs)}});
 }
 
-std::unique_ptr<lox::Expr> Parser::make_cons(InfixOperator op,
-                                             std::unique_ptr<lox::Expr> lhs,
-                                             std::unique_ptr<lox::Expr> rhs) {
-	return std::make_unique<lox::Expr>(
-	    lox::Expr{lox::InfixOpExpr{op, std::move(lhs), std::move(rhs)}});
+std::unique_ptr<dara::Expr> Parser::make_cons(InfixOperator op,
+                                             std::unique_ptr<dara::Expr> lhs,
+                                             std::unique_ptr<dara::Expr> rhs) {
+	return std::make_unique<dara::Expr>(
+	    dara::Expr{dara::InfixOpExpr{op, std::move(lhs), std::move(rhs)}});
 }
 
-std::unique_ptr<lox::Expr> Parser::make_cons(PostfixOperator op,
-                                             std::unique_ptr<lox::Expr> lhs) {
-	return std::make_unique<lox::Expr>(
-	    lox::Expr{lox::PostfixOpExpr{op, std::move(lhs)}});
+std::unique_ptr<dara::Expr> Parser::make_cons(PostfixOperator op,
+                                             std::unique_ptr<dara::Expr> lhs) {
+	return std::make_unique<dara::Expr>(
+	    dara::Expr{dara::PostfixOpExpr{op, std::move(lhs)}});
 }
 
 /* for AssignExpr */
 /*
-std::unique_ptr<lox::Expr> make_cons(std::string name,
-                                     std::unique_ptr<lox::Expr> value) {
-    return std::make_unique<lox::Expr>(
-        lox::Expr{lox::AssignExpr{name, std::move(value)}});
+std::unique_ptr<dara::Expr> make_cons(std::string name,
+                                     std::unique_ptr<dara::Expr> value) {
+    return std::make_unique<dara::Expr>(
+        dara::Expr{dara::AssignExpr{name, std::move(value)}});
 }
 */
 
 /* for assign expression */
 /*
-std::expected<std::unique_ptr<lox::Expr>, SyntaxError> apply_infix(
-    InfixOperator op, std::unique_ptr<lox::Expr> lhs,
-    std::unique_ptr<lox::Expr> rhs, Source* s) {
+std::expected<std::unique_ptr<dara::Expr>, SyntaxError> apply_infix(
+    InfixOperator op, std::unique_ptr<dara::Expr> lhs,
+    std::unique_ptr<dara::Expr> rhs, Source* s) {
     if (op == InfixOperator::Assign) {
-        if (std::holds_alternative<lox::VarExpr>(lhs->value)) {
-            auto& var_expr = std::get<lox::VarExpr>(lhs->value);
-            return std::make_unique<lox::Expr>(lox::Expr{
-                .value = lox::AssignExpr{.name = std::move(var_expr.name),
+        if (std::holds_alternative<dara::VarExpr>(lhs->value)) {
+            auto& var_expr = std::get<dara::VarExpr>(lhs->value);
+            return std::make_unique<dara::Expr>(dara::Expr{
+                .value = dara::AssignExpr{.name = std::move(var_expr.name),
                                          .value = std::move(rhs)},
                 .line = lhs->line,
                 .col = lhs->col});
@@ -477,8 +549,8 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> apply_infix(
         }
     } else {
         // new_ilhs = make_cons(infix_op, std::move(lhs), std::move(rhs));
-        return std::make_unique<lox::Expr>(
-            lox::Expr{lox::InfixOpExpr{op, std::move(lhs), std::move(rhs)}});
+        return std::make_unique<dara::Expr>(
+            dara::Expr{dara::InfixOpExpr{op, std::move(lhs), std::move(rhs)}});
     }
 }
 */
@@ -492,14 +564,14 @@ const InfixTrait* trait_ptr = get_infix_trait(infix_op);
  */
 
 /* in parser_expr.cpp */
-std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::call_expr(
-    std::unique_ptr<lox::Expr> callee) {
-	std::vector<std::unique_ptr<lox::Expr>> arguments;
+std::expected<std::unique_ptr<dara::Expr>, SyntaxError> Parser::call_expr(
+    std::unique_ptr<dara::Expr> callee) {
+	std::vector<std::unique_ptr<dara::Expr>> arguments;
 
 	// if (sym(")")(this->s)) {
 	if (RParen(this->s)) {
 		//
-		auto call_res = std::make_unique<lox::Expr>();
+		auto call_res = std::make_unique<dara::Expr>();
 		call_res->value = CallExpr{std::move(callee), std::move(arguments)};
 		return call_res;
 	}
@@ -528,7 +600,7 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::call_expr(
 		    this->s->make_error("Expected ')' after arguments"));
 	}
 
-	auto call_res = std::make_unique<lox::Expr>();
+	auto call_res = std::make_unique<dara::Expr>();
 	call_res->value = CallExpr{//
 	                           std::move(callee), std::move(arguments)};
 
@@ -536,8 +608,8 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::call_expr(
 }
 
 /* in parser_expr.cpp */
-std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::index_expr(
-    std::unique_ptr<lox::Expr> left) {
+std::expected<std::unique_ptr<dara::Expr>, SyntaxError> Parser::index_expr(
+    std::unique_ptr<dara::Expr> left) {
 	auto index_res = this->expr();
 	if (!index_res) {
 		return std::unexpected(index_res.error());
@@ -548,15 +620,15 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::index_expr(
 		    this->s->make_error("epected ']' after array index"));
 	}
 
-	auto value_res = std::make_unique<lox::Expr>();
+	auto value_res = std::make_unique<dara::Expr>();
 	value_res->value = IndexExpr{std::move(left), std::move(index_res.value())};
 	return value_res;
-	// return std::make_unique(lox::Expr{
-	//     .value = lox::IndexExpr{.array = std::move(left),
+	// return std::make_unique(dara::Expr{
+	//     .value = dara::IndexExpr{.array = std::move(left),
 	//                             .index = std::move(index_res.value())}});
 }
 
-std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::prefix_expr() {
+std::expected<std::unique_ptr<dara::Expr>, SyntaxError> Parser::prefix_expr() {
 	// Source backup = *(this->s);
 	// auto op_res = prefix_op(this->s);
 	auto op_res = this->prefix_op();
@@ -573,14 +645,14 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::prefix_expr() {
 	// return make_cons(op, std::move(rhs_res.value()));
 
 	return this->expr(trait_ptr->rbp).transform([&](auto rhs) {
-		auto new_expr = std::make_unique<lox::Expr>();
+		auto new_expr = std::make_unique<dara::Expr>();
 		new_expr->value = trait_ptr->make(std::move(rhs));
 		return new_expr;
 	});
 }
 
-std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::mixfix_expr(
-    MixfixOperator op, std::unique_ptr<lox::Expr> lhs) {
+std::expected<std::unique_ptr<dara::Expr>, SyntaxError> Parser::mixfix_expr(
+    MixfixOperator op, std::unique_ptr<dara::Expr> lhs) {
 	switch (op) {
 		case MixfixOperator::Call:
 			return this->call_expr(std::move(lhs));
@@ -597,7 +669,7 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::mixfix_expr(
 }
 //}
 
-std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::paren_expr() {
+std::expected<std::unique_ptr<dara::Expr>, SyntaxError> Parser::paren_expr() {
 	// TraceGuard trace("parse_paren_expr");
 	//  if (!sym('(')(s)) return std::unexpected(s->make_error("not '('"));
 	if (!LParen(this->s)) {
@@ -616,11 +688,11 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::paren_expr() {
 	return std::move(inner_res.value());
 }
 
-std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::bracket_expr() {
+std::expected<std::unique_ptr<dara::Expr>, SyntaxError> Parser::bracket_expr() {
 	if (!LBracket(this->s)) {
 		return std::unexpected(this->s->make_error("not '['"));
 	}
-	std::vector<std::unique_ptr<lox::Expr>> elements;
+	std::vector<std::unique_ptr<dara::Expr>> elements;
 
 	if (!RBracket(this->s)) {
 		while (true) {
@@ -641,33 +713,45 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::bracket_expr() {
 			}
 		}
 	}
-	return std::make_unique<lox::Expr>(
-	    lox::Expr{.value = lox::ArrayExpr{std::move(elements)}});
+	return std::make_unique<dara::Expr>(
+	    dara::Expr{.value = dara::ArrayExpr{std::move(elements)}});
 }
 
-std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::dot_expr(
-    std::unique_ptr<lox::Expr> left) {
+std::expected<std::unique_ptr<dara::Expr>, SyntaxError> Parser::dot_expr(
+    std::unique_ptr<dara::Expr> left) {
 	auto name_res = identifier(this->s);
 	if (!name_res) {
 		return std::unexpected(
 		    this->s->make_error("Expected property name after '.'"));
 	}
 
-	auto value_res = std::make_unique<lox::Expr>();
+	auto value_res = std::make_unique<dara::Expr>();
 	value_res->value = GetExpr{std::move(left), std::move(name_res.value())};
 
 	return value_res;
 }
 
-/* */
-std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::atom_expr() {
+/* atom_expr */
+std::expected<std::unique_ptr<dara::Expr>, SyntaxError> Parser::atom_expr() {
 	Source backup = *(this->s);
 	int line = this->s->line;
 	int col = this->s->col;
 
 	if (auto bool_res = boolean_literal(this->s)) {
-		return std::make_unique<lox::Expr>(lox::Expr{
-		    .value = lox::BoolExpr{.value = std::move(bool_res.value())},
+		return std::make_unique<dara::Expr>(dara::Expr{
+		    .value = dara::BoolExpr{.value = std::move(bool_res.value())},
+		    .line = line,
+		    .col = col});
+	}
+	*s = backup;
+
+	if (auto double_res = double_literal(this->s)) {
+		/*
+		return std::make_unique<dara::Expr>(
+		    dara::Expr{dara::IntExpr{int_res.value()}});
+		*/
+		return std::make_unique<dara::Expr>(dara::Expr{
+		    .value = dara::DoubleExpr{.value = std::move(double_res.value())},
 		    .line = line,
 		    .col = col});
 	}
@@ -675,11 +759,11 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::atom_expr() {
 
 	if (auto int_res = integer_literal(this->s)) {
 		/*
-		return std::make_unique<lox::Expr>(
-		    lox::Expr{lox::IntExpr{int_res.value()}});
+		return std::make_unique<dara::Expr>(
+		    dara::Expr{dara::IntExpr{int_res.value()}});
 		*/
-		return std::make_unique<lox::Expr>(lox::Expr{
-		    .value = lox::IntExpr{.value = std::move(int_res.value())},
+		return std::make_unique<dara::Expr>(dara::Expr{
+		    .value = dara::IntExpr{.value = std::move(int_res.value())},
 		    .line = line,
 		    .col = col});
 	}
@@ -687,19 +771,19 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::atom_expr() {
 
 	if (auto str_res = string_literal(this->s)) {
 		/*
-		return std::make_unique<lox::Expr>(
-		    lox::Expr{lox::StringExpr{str_res.value()}});
+		return std::make_unique<dara::Expr>(
+		    dara::Expr{dara::StringExpr{str_res.value()}});
 		*/
-		return std::make_unique<lox::Expr>(lox::Expr{
-		    .value = lox::StringExpr{.value = std::move(str_res.value())},
+		return std::make_unique<dara::Expr>(dara::Expr{
+		    .value = dara::StringExpr{.value = std::move(str_res.value())},
 		    .line = line,
 		    .col = col});
 	}
 	*s = backup;
 
 	if (auto id_res = identifier(this->s)) {
-		return std::make_unique<lox::Expr>(
-		    lox::Expr{.value = lox::VarExpr{.name = std::move(id_res.value())},
+		return std::make_unique<dara::Expr>(
+		    dara::Expr{.value = dara::VarExpr{.name = std::move(id_res.value())},
 		              .line = line,
 		              .col = col});
 	}
@@ -710,7 +794,7 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::atom_expr() {
 }
 
 /* in parser_expr.cpp */
-std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::fn_expr() {
+std::expected<std::unique_ptr<dara::Expr>, SyntaxError> Parser::fn_expr() {
 	Source backup = *s;
 
 	if (!Function(this->s)) {
@@ -747,7 +831,7 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::fn_expr() {
 		    this->s->make_error("Expected '{' before function body"));
 	}
 
-	std::vector<std::unique_ptr<lox::Decl>> body;
+	std::vector<std::unique_ptr<dara::Decl>> body;
 
 	FunctionDepthGuard guard(this->function_depth, this->loop_depth);
 
@@ -760,35 +844,35 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::fn_expr() {
 		body.push_back(std::move(decl_res.value()));
 	}
 
-	auto function_expr = std::make_unique<lox::Expr>();
+	auto function_expr = std::make_unique<dara::Expr>();
 	function_expr->value = FunctionExpr{std::move(parameters), std::move(body)};
 
 	return function_expr;
 }
 
 /*
-std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::this_expr() {
-    auto this_expr = std::make_unique<lox::Expr>();
+std::expected<std::unique_ptr<dara::Expr>, SyntaxError> Parser::this_expr() {
+    auto this_expr = std::make_unique<dara::Expr>();
     return this_expr;
 }
 */
 
-std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::this_expr() {
+std::expected<std::unique_ptr<dara::Expr>, SyntaxError> Parser::this_expr() {
 	// 1. "this" というキーワードを確実に消費（Consume）する
 	if (!This(this->s)) {
 		return std::unexpected(this->s->make_error("Expected 'this' keyword"));
 	}
 
 	// 2. ASTノードを作成し、中身の variant に ThisExpr をセットする
-	auto expr_node = std::make_unique<lox::Expr>();
+	auto expr_node = std::make_unique<dara::Expr>();
 	expr_node->value =
-	    lox::ThisExpr{};  // ※ご自身のAST構造体名に合わせてください
+	    dara::ThisExpr{};  // ※ご自身のAST構造体名に合わせてください
 
 	return expr_node;
 }
 
 /* nud in parser_expr.cpp */
-std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::nud() {
+std::expected<std::unique_ptr<dara::Expr>, SyntaxError> Parser::nud() {
 	// if (auto res = parse_prefix_expr(s)) return res;
 	//
 
@@ -846,7 +930,7 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::nud() {
 }
 
 /* Parser::expr in parser_expr.cpp */
-std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::expr(
+std::expected<std::unique_ptr<dara::Expr>, SyntaxError> Parser::expr(
     int min_bp /* = 0 */) {
 	this->s->skip_whitespace();  //(**)
 	auto lhs_res = this->nud();
@@ -870,7 +954,7 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::expr(
 				break;
 			}
 
-			auto new_expr = std::make_unique<lox::Expr>();
+			auto new_expr = std::make_unique<dara::Expr>();
 			new_expr->value = trait_ptr->make(std::move(lhs));
 			lhs = std::move(new_expr);
 
@@ -888,7 +972,7 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::expr(
 			if (trait_ptr->lbp < min_bp) {
 				*(this->s) = loop_backup;
 			} else {
-				// std::expected<std::unique_ptr<lox::Expr>, SyntaxError>
+				// std::expected<std::unique_ptr<dara::Expr>, SyntaxError>
 				//     parsed_res;
 
 				/*
@@ -933,8 +1017,8 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::expr(
 		}
 
 		auto irhs_res = this->expr(trait_ptr->rbp)
-		                    .transform([&](std::unique_ptr<lox::Expr> irhs) {
-			                    auto new_expr = std::make_unique<lox::Expr>();
+		                    .transform([&](std::unique_ptr<dara::Expr> irhs) {
+			                    auto new_expr = std::make_unique<dara::Expr>();
 			                    new_expr->value = trait_ptr->make(
 			                        std::move(lhs), std::move(irhs));
 
@@ -949,4 +1033,4 @@ std::expected<std::unique_ptr<lox::Expr>, SyntaxError> Parser::expr(
 	return lhs;
 }
 
-}  // namespace lox::frontend
+}  // namespace dara::frontend

@@ -9,12 +9,15 @@
 /* Parser phase */
 /* expression */
 
-namespace lox {
+namespace dara {
 
 class Expr;
 
 struct IntExpr {
 	int value;
+};
+struct DoubleExpr {
+	double value;
 };
 struct CharExpr {
 	char value;
@@ -71,6 +74,7 @@ struct ClassDecl {
 	std::unique_ptr<Expr> super;
 	std::vector<std::unique_ptr<Expr>> mixins;
 	std::vector<MethodDecl> methods;
+	std::vector<MethodDecl> static_methods;
 };
 
 struct Decl;
@@ -133,7 +137,7 @@ struct MixfixRule {
 // };
 
 using ExprValue =
-    std::variant<IntExpr, CharExpr, StringExpr, BoolExpr,
+    std::variant<IntExpr, DoubleExpr, CharExpr, StringExpr, BoolExpr,
                  // IdentifierExpr,
                  // AssignExpr,
                  ArrayExpr, IndexExpr, GetExpr, ThisExpr,
@@ -153,7 +157,7 @@ class Expr {
    private:
 };
 
-using ExprPtr = std::unique_ptr<lox::Expr>;
+using ExprPtr = std::unique_ptr<dara::Expr>;
 using InfixBuilder = ExprValue(ExprPtr l, ExprPtr r);
 
 struct InfixTrait {
@@ -358,33 +362,7 @@ struct Decl {
 	int col;
 };
 
-/* statement */
-/*
-struct IfStmt {
-    std::unique_ptr<Expr> condition;
-    std::unique_ptr<Stmt> then_branch;
-    std::unique_ptr<Stmt> else_branch;
-};
 
+// std::string to_string(const dara::Value& val);
 
-using StmtValue = std::variant<IfStmt, ReturnStmt>;
-
-struct Stmt {
-    StmtValue value;
-};
-
-struct ReturnStmt {
-    std::unique_ptr<Expr> value;
-};
-
-*/
-
-/*
-struct BlockStmt {
-    std::vector<std::unique_ptr<Stmt>> statement;
-};
-*/
-
-// std::string to_string(const lox::Value& val);
-
-}  // namespace lox
+}  // namespace dara
