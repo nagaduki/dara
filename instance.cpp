@@ -1,3 +1,4 @@
+/* instance.cpp */
 #include "instance.hpp"
 
 #include <memory>
@@ -6,15 +7,17 @@
 #include "callable.hpp"
 #include "class.hpp"
 
-namespace dara::runtime {
+namespace dara::backend {
+
+using namespace dara::ast;
 
 // Instance.get
-Result<dara::Value> Instance::get(const std::string& name) {
+Result<Value> Instance::get(Interpreter& interpreter, const std::string& name) {
 	if (fields.contains(name)) {
 		return fields.at(name);
 	}
 
-    dara::Value method_val = cls->find_method(name);
+    Value method_val = cls->find_method(name);
 
 	//if (cls->methods.contains(name)) {
 	//if (auto method_opt = cls->find_method(name)) {
@@ -37,7 +40,7 @@ Result<dara::Value> Instance::get(const std::string& name) {
 			if (auto function =
 			        std::dynamic_pointer_cast<dara::backend::Function>(
 			            *callable_ptr)) {
-				auto bound_method = function->bind(shared_from_this());  //(*)
+				auto bound_method = function->bind(interpreter, shared_from_this());  //(*)
 
 				return Value{std::static_pointer_cast<dara::backend::Callable>(
 				    bound_method)};
@@ -47,10 +50,10 @@ Result<dara::Value> Instance::get(const std::string& name) {
 			auto receiver = shared_from_this();
 			auto bound_closure = [receiver, callable](
 			                         dara::backend::Interpreter& interpreter,
-			                         const std::vector<dara::Value>& arguments)
-			    -> Result<dara::Value> {
-				std::vector<dara::Value> args_with_this;
-				args_with_this.push_back(dara::Value{.data = receiver});
+			                         const std::vector<Value>& arguments)
+			    -> Result<Value> {
+				std::vector<Value> args_with_this;
+				args_with_this.push_back(Value{.data = receiver});
 				for (const auto& arg : arguments) {
 					args_with_this.push_back(arg);
 				}
@@ -60,13 +63,13 @@ Result<dara::Value> Instance::get(const std::string& name) {
 			    (callable->arity() > 0) ? callable->arity() - 1 : 0; //(***)
 			auto bound_method = std::make_shared<dara::backend::LambdaCallable>(
 			    new_arity, std::move(bound_closure));
-			//return dara::Value{.data = bound_method};
-			return dara::Value{std::static_pointer_cast<dara::backend::Callable>(bound_method)};
+			//return Value{.data = bound_method};
+			return Value{std::static_pointer_cast<dara::backend::Callable>(bound_method)};
 		}
 	}
 
 	return std::unexpected(
-	    InterpreterError("undefined property '" + name + "'"));
+	    dara::error::InterpreterError("undefined property '" + name + "'"));
 }
 
 void Instance::set(const std::string& name, Value value) {
@@ -101,4 +104,4 @@ std::vector<std::string> Instance::get_property_names() const {
 
 std::shared_ptr<Class> Instance::get_class() const { return this->cls; }
 
-}  // namespace dara::runtime
+}  // namespace dara::backend

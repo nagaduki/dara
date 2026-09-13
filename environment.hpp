@@ -5,6 +5,7 @@
 // #include <map>
 #include <optional>
 #include <unordered_map>
+#include <memory_resource>
 // #include "interpreter.hpp"
 // #include "environment.hpp"
 #include "ast.hpp"
@@ -12,17 +13,18 @@
 
 class Environment {
    private:
-	std::unordered_map<std::string, dara::Value> variables;
+	//std::unordered_map<std::string, dara::backend::Value> variables;
+	std::pmr::unordered_map<std::string, dara::backend::Value> variables;
 	std::shared_ptr<Environment> enclosing;
 
    public:
-	Environment() : enclosing(nullptr) {};
-	explicit Environment(std::shared_ptr<Environment> enclosing)
-	    : enclosing(std::move(enclosing)) {}
-	void define(const std::string& name, const dara::Value& value) {
+	//Environment() : enclosing(nullptr) {};
+	explicit Environment(dara::backend::Allocator alloc, std::shared_ptr<Environment> enclosing = nullptr) //(***)
+	    : variables(alloc), enclosing(std::move(enclosing)) {}
+	void define(const std::string& name, const dara::backend::Value& value) {
 		this->variables[name] = value;
 	};
-	std::optional<dara::Value> get(const std::string& name) {
+	std::optional<dara::backend::Value> get(const std::string& name) {
 		if (this->variables.contains(name)) {
 			return variables[name];
 		}
@@ -34,7 +36,7 @@ class Environment {
 		return std::nullopt;
 	}
 
-	bool assign(const std::string& name, const dara::Value& value) {
+	bool assign(const std::string& name, const dara::backend::Value& value) {
 		if (this->variables.contains(name)) {
 			this->variables[name] = value;
 
@@ -49,8 +51,8 @@ class Environment {
 	}
 
     /*
-	std::unordered_map<std::string, dara::Value> get_all_values() {
-        std::unordered_map<std::string, dara::Value> variables;
+	std::unordered_map<std::string, dara::backend::Value> get_all_values() {
+        std::unordered_map<std::string, dara::backend::Value> variables;
 		for (const auto& [name, val] : this->variables) {
 			if (this->variables.contains(name)) {
                 variables[name]=val;
@@ -59,7 +61,8 @@ class Environment {
 		return variables;
 	}
     */
-	std::unordered_map<std::string, dara::Value> get_all_values() const {
+	//std::unordered_map<std::string, dara::backend::Value> get_all_values() const {
+	std::pmr::unordered_map<std::string, dara::backend::Value> get_all_values() const {
         return this->variables;
     }
 

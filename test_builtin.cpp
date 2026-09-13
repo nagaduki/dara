@@ -20,16 +20,17 @@
 
 using namespace dara::frontend;
 using namespace dara::backend;
+using namespace dara::ast;
 
 
 TEST_CASE("Interpreter: 'is' and '===' Operators") {
     // 既存の素晴らしいヘルパー関数を利用します
     auto run_script_and_get = [](const char* input,
-                                 const std::string& var_name) -> dara::Value {
+                                 const std::string& var_name) -> Value {
         Source s(input);
         dara::frontend::Parser p(&s);
         dara::backend::Interpreter interpreter;
-        dara::Program program;
+        dara::ast::Program program;
 
         while (!s.isEnd()) {
             spaces(&s);
@@ -130,11 +131,11 @@ TEST_CASE("Interpreter: 'is' and '===' Operators") {
 TEST_CASE("Interpreter: Builtin Functions") {
     // 既存の素晴らしいヘルパー関数をここでも利用します
     auto run_script_and_get = [](const char* input,
-                                 const std::string& var_name) -> dara::Value {
+                                 const std::string& var_name) -> Value {
         Source s(input);
         dara::frontend::Parser p(&s);
         dara::backend::Interpreter interpreter;
-        dara::Program program;
+        dara::ast::Program program;
 
         while (!s.isEnd()) {
             spaces(&s);
@@ -154,14 +155,14 @@ TEST_CASE("Interpreter: Builtin Functions") {
 
     SUBCASE("len() function returns correct length") {
         // 配列の長さ
-        dara::Value arr_len = run_script_and_get(
+        Value arr_len = run_script_and_get(
             "let a = [1, 2, 3, 4];"
             "let res = len(a);",
             "res");
         CHECK(std::get<int>(arr_len.data) == 4);
 
         // 文字列の長さ
-        dara::Value str_len = run_script_and_get(
+        Value str_len = run_script_and_get(
             "let s = \"hello\";"
             "let res = len(s);",
             "res");
@@ -169,18 +170,18 @@ TEST_CASE("Interpreter: Builtin Functions") {
     }
 
     SUBCASE("type() function returns correct type string") {
-        CHECK(std::get<std::string>(run_script_and_get("let res = type(\"hi\");", "res").data) == "string");
-        CHECK(std::get<std::string>(run_script_and_get("let res = type([1]);", "res").data) == "vector");
-        CHECK(std::get<std::string>(run_script_and_get("let res = type(true);", "res").data) == "bool");
+        CHECK(std::get<String>(run_script_and_get("let res = type(\"hi\");", "res").data) == "string");
+        CHECK(std::get<String>(run_script_and_get("let res = type([1]);", "res").data) == "vector");
+        CHECK(std::get<String>(run_script_and_get("let res = type(true);", "res").data) == "bool");
         
         // ⚠️ 注: あなたの BuiltinType の実装で "interger" と綴られていたため、テストもそれに合わせています。
         // もし "integer" に直した場合は、ここも "integer" に変更してください。
-        CHECK(std::get<std::string>(run_script_and_get("let res = type(123);", "res").data) == "integer");
+        CHECK(std::get<String>(run_script_and_get("let res = type(123);", "res").data) == "integer");
     }
 
     SUBCASE("assert() function stops execution on failure") {
         // 正常系 (Truthy): そのまま true が返る
-        dara::Value pass_res = run_script_and_get("let res = assert(true, \"ok\");", "res");
+        Value pass_res = run_script_and_get("let res = assert(true, \"ok\");", "res");
         CHECK(std::get<bool>(pass_res.data) == true);
 
         // 異常系 (Falsy): 実行時エラー(std::runtime_error)が飛ぶはず
@@ -203,10 +204,10 @@ TEST_CASE("Interpreter: Builtin Functions") {
             "f.x = 10;"
             "let res = props(f);";
 
-        dara::Value props_val = run_script_and_get(script, "res");
+        Value props_val = run_script_and_get(script, "res");
         
-        // 結果は std::vector<dara::Value> のはず
-        auto* vec_ptr = std::get_if<std::vector<dara::Value>>(&props_val.data);
+        // 結果は std::vector<Value> のはず
+        auto* vec_ptr = std::get_if<Array>(&props_val.data);
         REQUIRE(vec_ptr != nullptr);
         REQUIRE(vec_ptr->size() == 2);
 
@@ -214,7 +215,7 @@ TEST_CASE("Interpreter: Builtin Functions") {
         bool has_x = false;
         bool has_method = false;
         for (const auto& v : *vec_ptr) {
-            std::string prop_name = std::get<std::string>(v.data);
+            Array prop_name = std::get<Array>(v.data);
             if (prop_name == "x") has_x = true;
             if (prop_name == "method()") has_method = true;
         }

@@ -1,3 +1,4 @@
+/* ast.hpp */
 #pragma once
 
 #include <memory>
@@ -9,7 +10,8 @@
 /* Parser phase */
 /* expression */
 
-namespace dara {
+//namespace dara {
+namespace dara::ast {
 
 class Expr;
 
@@ -95,34 +97,34 @@ struct IdentifierExpr {
 /* expression */
 /* operator */
 struct InfixOpExpr {
-	InfixOperator op;
+	dara::lexer::InfixOperator op;
 	std::unique_ptr<Expr> lhs;
 	std::unique_ptr<Expr> rhs;
 };
 
 struct PrefixOpExpr {
-	PrefixOperator op;
+	dara::lexer::PrefixOperator op;
 	std::unique_ptr<Expr> rhs;
 };
 struct PostfixOpExpr {
-	PostfixOperator op;
+	dara::lexer::PostfixOperator op;
 	std::unique_ptr<Expr> lhs;
 };
 
 struct LogicalOpExpr {
-	LogicalOperator op;
+	dara::lexer::LogicalOperator op;
 	std::unique_ptr<Expr> lhs;
 	std::unique_ptr<Expr> rhs;
 };
 
-enum class MixfixOperator { Call, Index, Property };
+//enum class dara::lexer::MixfixOperator { Call, Index, Property }; // (***)
 
 struct MixfixTrait {
 	int lbp;  // Metafixは右辺(rbp)を持たず、専用の関数で消費するためlbpのみでOK
 };
 
 struct MixfixRule {
-	MixfixOperator op;
+	dara::lexer::MixfixOperator op;
 	MixfixTrait trait;
 };
 
@@ -157,7 +159,7 @@ class Expr {
    private:
 };
 
-using ExprPtr = std::unique_ptr<dara::Expr>;
+using ExprPtr = std::unique_ptr<Expr>;
 using InfixBuilder = ExprValue(ExprPtr l, ExprPtr r);
 
 struct InfixTrait {
@@ -167,7 +169,7 @@ struct InfixTrait {
 };
 
 struct InfixRule {
-	InfixOperator op;
+	dara::lexer::InfixOperator op;
 	InfixTrait trait;
 };
 
@@ -179,7 +181,7 @@ struct PrefixTrait {
 };
 
 struct PrefixRule {
-	PrefixOperator op;
+	dara::lexer::PrefixOperator op;
 	PrefixTrait trait;
 };
 
@@ -191,7 +193,7 @@ struct PostfixTrait {
 };
 
 struct PostfixRule {
-	PostfixOperator op;
+	dara::lexer::PostfixOperator op;
 	PostfixTrait trait;
 };
 
@@ -246,14 +248,14 @@ struct SetStmt {
 
 struct CompoundAssignStmt {
 	std::string name;
-	InfixOperator op;
+	dara::lexer::InfixOperator op;
 	std::unique_ptr<Expr> value;
 };
 
 struct CompoundSetStmt {
 	std::unique_ptr<Expr> object;
 	std::string name;
-	InfixOperator op;
+	dara::lexer::InfixOperator op;
 	std::unique_ptr<Expr> value;
 };
 
@@ -329,7 +331,7 @@ struct Stmt {
 /* Interpreter phase */
 
 template <typename T>
-using Result = std::expected<T, InterpreterError>;
+using Result = std::expected<T, dara::error::InterpreterError>;
 
 /// \brief 変数宣言の文を扱う構造体
 /// \details nameとinitializerの２つのmemberをもつ

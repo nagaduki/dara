@@ -23,22 +23,25 @@
 #include "source.hpp"
 
 using namespace dara::frontend;
+using namespace dara::ast;
+using namespace dara::lexer;
 using namespace dara::backend;
 
-inline Interpreter run_code_and_get_interpreter(const std::string& code) {
+//inline Interpreter run_code_and_get_interpreter(const std::string& code) {
+inline std::unique_ptr<Interpreter> run_code_and_get_interpreter(const std::string& code) {
 	Source source(code.c_str());  //(*)
 	Parser parser(&source);
-	Interpreter interpreter;
-	//auto interpreter = std::make_unique<Interpreter>();
+	auto interpreter = std::make_unique<Interpreter>();
 
 	// プログラム全体をパース（トップレベルの parse メソッドを呼ぶ想定）
 	auto program_res = parser.program();
 	if (!program_res) {
 		FAIL_CHECK("Parse Error: " << program_res.error().message);
-		return std::move(interpreter);
+		//return std::move(interpreter); //
+		return interpreter; //
 	}
 
-    static std::list<dara::Program> test_asts;
+    static std::list<Program> test_asts;
 	test_asts.push_back(std::move(program_res.value()));
 	// プログラム全体を評価（※execの引数がProgramに対応している前提です）
 	// もしProgram用のexecがまだなら、for文で declarations を回して exec
@@ -51,7 +54,7 @@ inline Interpreter run_code_and_get_interpreter(const std::string& code) {
 	*/
 	// interpreter->module_asts.push_back(std::move(program_res.value()));
 	// const dara::Program& program = interpreter->module_asts.back();
-	auto eval_res = interpreter.exec(&test_asts.back());
+	auto eval_res = interpreter->exec(&test_asts.back());
 	if (!eval_res) {
 	    FAIL_CHECK("Runtime Error occurred.");
 	}
@@ -70,10 +73,10 @@ TEST_CASE("Rule: String literal with spaces (anyBut fix)") {
 		auto expr = std::move(expr_res.value());
 
 		// 生成されたASTノードが StringExpr であるかを確認
-		REQUIRE(std::holds_alternative<dara::StringExpr>(expr->value));
+		REQUIRE(std::holds_alternative<StringExpr>(expr->value));
 
 		// 中身の文字列でスペースが消失せず維持されているか確認
-		auto& str_expr = std::get<dara::StringExpr>(expr->value);
+		auto& str_expr = std::get<StringExpr>(expr->value);
 		CHECK(str_expr.value == "abc xyz");
 	}
 }
@@ -96,7 +99,7 @@ TEST_CASE("Rule: Print Statement") {
 		auto stmt = std::move(res.value());
 
 		// 生成されたASTノードが PrintStmt であるかを確認
-		CHECK(std::holds_alternative<dara::PrintStmt>(stmt->value));
+		CHECK(std::holds_alternative<PrintStmt>(stmt->value));
 
 		// パース完了後、末尾まで読み切っているか
 		CHECK(s.isEnd());
@@ -139,7 +142,7 @@ TEST_CASE("Rule: Expression Statement") {  //(***)
 		auto stmt = std::move(res.value());
 
 		// 生成されたASTノードが ExprStmt であるかを確認
-		CHECK(std::holds_alternative<dara::ExprStmt>(stmt->value));
+		CHECK(std::holds_alternative<ExprStmt>(stmt->value));
 	}
 
 	SUBCASE("Missing semicolon in expression statement") {
@@ -169,11 +172,11 @@ TEST_CASE("Rule: Declaration (TopLevelStmt)") {
 		auto decl = std::move(res.value());
 
 		// 一番外側が TopLevelStmt でラップされているか
-		REQUIRE(std::holds_alternative<dara::TopLevelStmt>(decl->value));
+		REQUIRE(std::holds_alternative<TopLevelStmt>(decl->value));
 
 		// その中身の Stmt を取り出して、さらに PrintStmt であるか確認
-		auto& top_level = std::get<dara::TopLevelStmt>(decl->value);
-		CHECK(std::holds_alternative<dara::PrintStmt>(top_level.stmt->value));
+		auto& top_level = std::get<TopLevelStmt>(decl->value);
+		CHECK(std::holds_alternative<PrintStmt>(top_level.stmt->value));
 	}
 }
 

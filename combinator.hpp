@@ -7,12 +7,38 @@
 #include "error.hpp"
 #include "source.hpp"
 
+
+namespace dara::combinator {
+
 template <typename T>
-using Rule = std::function<std::expected<T, SyntaxError>(Source*)>;
+using Rule = std::function<std::expected<T, dara::error::SynataxError>(Source*)>;
+
+template <typename T>
+Rule<T> operator||(const Rule<T>& p1, const Rule<T>& p2);
+
+template <typename T1, typename T2>
+Rule<std::string> operator+(const Rule<T1>& x, const Rule<T2>& y);
+
+template <typename T1, typename T2>
+Rule<T1> operator<<(const Rule<T1>& p1, const Rule<T2>& p2);
+
+template <typename T1, typename T2>
+Rule<T2> operator>>(const Rule<T1>& p1, const Rule<T2>& p2);
+
+template <typename T>
+Rule<std::string> operator*(int n, const Rule<T>& x);
+
+template <typename T>
+Rule<std::string> operator*(const Rule<T>& x, int n);
+
+template <typename T>
+    requires requires(T x) { -x; }
+Rule<T> operator-(const Rule<T>& p);
+
 
 template <typename T>
 Rule<T> left(const std::string& e) {
-	Rule<T> np = [=](Source* s) -> std::expected<T, SyntaxError> {
+	Rule<T> np = [=](Source* s) -> std::expected<T, dara::error::SynataxError> {
 		return std::unexpected(s->make_error(e));
 	};
 	return np;
@@ -22,13 +48,13 @@ inline Rule<char> left(const std::string& e) { return left<char>(e); }
 
 template <typename T>
 Rule<T> operator||(const Rule<T>& p1, const Rule<T>& p2) {
-	return [=](Source* s) -> std::expected<T, SyntaxError> {
+	return [=](Source* s) -> std::expected<T, dara::error::SynataxError> {
 		Source backup = *s;
 
-		return p1(s).or_else([&](const SyntaxError& err1) {
+		return p1(s).or_else([&](const dara::error::SynataxError& err1) {
 			*s = backup;
 
-			return p2(s).transform_error([&](const SyntaxError& err2) {
+			return p2(s).transform_error([&](const dara::error::SynataxError& err2) {
 				// 【最深部エラー優先戦略】
 				// err1 の方がソースコードの後ろの方で発生していたら、err1
 				// を採用する
@@ -49,7 +75,7 @@ Rule<T> operator||(const Rule<T>& p1, const Rule<T>& p2) {
 template <typename T>
 Rule<std::string> many(const Rule<T>& p) {
 	Rule<std::string> np =
-	    [=](Source* s) -> std::expected<std::string, SyntaxError> {
+	    [=](Source* s) -> std::expected<std::string, dara::error::SynataxError> {
 		std::string ret;
 		while (auto res = p(s)) {
 			ret += res.value();
@@ -66,7 +92,7 @@ Rule<std::string> many1(const Rule<T>& p) {
 
 /* satify 1 */
 inline Rule<char> satisfy(const std::function<bool(char)>& f) {
-	Rule<char> np = [=](Source* s) -> std::expected<char, SyntaxError> {
+	Rule<char> np = [=](Source* s) -> std::expected<char, dara::error::SynataxError> {
 		if (s->isEnd()) return std::unexpected(s->make_error("too short"));
 		auto ch = s->peek();
 		if (f(ch.value()) != true)
@@ -81,7 +107,7 @@ inline Rule<char> satisfy(const std::function<bool(char)>& f) {
 inline Rule<char> satisfy(const std::function<bool(char, char)>& f, char c) {
 	// Rule<char>の型に合わせて、引数は Source* のみとする
 	// 比較対象の文字 'c' と関数 'f' は [=] でキャプチャ（コピー）して内部で使う
-	Rule<char> np = [=](Source* s) -> std::expected<char, SyntaxError> {
+	Rule<char> np = [=](Source* s) -> std::expected<char, dara::error::SynataxError> {
 		auto ch_res = s->peek();  // error
 		if (!ch_res) return std::unexpected(ch_res.error());
 		if (f(ch_res.value(), c) != true)
@@ -97,7 +123,7 @@ inline Rule<char> satisfy(const std::function<bool(char, char)>& f, char c) {
 // operator<< 
 template <typename T1, typename T2>
 Rule<T1> operator<<(const Rule<T1>& p1, const Rule<T2>& p2) {
-	return [=](Source* s) -> std::expected<T1, SyntaxError> {
+	return [=](Source* s) -> std::expected<T1, dara::error::SynataxError> {
 		Source loop_backup = *s;
 		auto res_left = p1(s);
 		if (!res_left) {
@@ -117,7 +143,7 @@ Rule<T1> operator<<(const Rule<T1>& p1, const Rule<T2>& p2) {
 
 template <typename T1, typename T2>
 Rule<T2> operator>>(const Rule<T1>& p1, const Rule<T2>& p2) {
-	return [=](Source* s) -> std::expected<T2, SyntaxError> {
+	return [=](Source* s) -> std::expected<T2, dara::error::SynataxError> {
 		// return [=](Source *s) -> Rule<T2> {
 		Source loop_backup = *s;
 		auto res_left = p1(s);
@@ -136,7 +162,7 @@ Rule<T2> operator>>(const Rule<T1>& p1, const Rule<T2>& p2) {
 
 template <typename T1, typename T2>
 Rule<std::string> operator+(const Rule<T1>& x, const Rule<T2>& y) {
-	return [=](Source* s) -> std::expected<std::string, SyntaxError> {
+	return [=](Source* s) -> std::expected<std::string, dara::error::SynataxError> {
 		Source backup = *s;
 
 		// x を実行し、成功したら(and_then)その値(val_x)を持って次へ
@@ -159,7 +185,7 @@ template <typename T>
 Rule<std::string> operator*(int n, const Rule<T>& x) {
 	// Rule<std::string> np = [=](Source* s) -> std::optional<string> {
 	Rule<std::string> np =
-	    [=](Source* s) -> std::expected<std::string, SyntaxError> {
+	    [=](Source* s) -> std::expected<std::string, dara::error::SynataxError> {
 		Source backup = *s;
 		std::string ret = "";
 		for (int i = 0; i < n; i++) {
@@ -183,7 +209,7 @@ Rule<std::string> operator*(const Rule<T>& x, int n) {
 
 template <typename T1, typename T2>
 Rule<T1> apply(const std::function<T1(const T2&)>& f, const Rule<T2>& p) {
-	return [=](Source* s) -> std::expected<T1, SyntaxError> {
+	return [=](Source* s) -> std::expected<T1, dara::error::SynataxError> {
 		Source loop_backup = *s;
 		auto res_p = p(s);
 		if (!res_p) {
@@ -202,4 +228,4 @@ Rule<T> operator-(const Rule<T>& p) {
 	return apply<T, T>(std::negate<T>(), p);
 }
 
-
+}

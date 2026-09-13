@@ -7,6 +7,9 @@
 #include "ast.hpp"
 #include "printer.hpp"
 
+using namespace dara::lexer;
+using namespace dara::ast;
+
 template <class... Ts>
 struct overloaded : Ts... {
 	using Ts::operator()...;
@@ -18,7 +21,7 @@ overloaded(Ts...) -> overloaded<Ts...>;
 #define PRINT_LINE() \
 	std::cout << "Line: " << __LINE__ << " (in " << __FILE__ << ")" << std::endl
 
-std::string DotPrinter::print(const dara::Expr* expr) {
+std::string DotPrinter::print(const Expr* expr) {
 	this->out << "digraph AST {" << std::endl;
 	this->out << "graph [size=\"8,10!\", dpi=150, nodesep=0.4, ranksep=0.5];"
 	          << std::endl;
@@ -34,7 +37,7 @@ std::string DotPrinter::print(const dara::Expr* expr) {
 /* */
 
 std::string DotPrinter::print(
-    const std::vector<std::unique_ptr<dara::Decl>>& program) {
+    const std::vector<std::unique_ptr<Decl>>& program) {
 	// std::string DotPrinter::print(const dara::Program& program) {
 	this->out.str("");
 	this->out.clear();
@@ -62,7 +65,7 @@ std::string DotPrinter::print(
 	return this->out.str();
 }
 
-std::string DotPrinter::print(const dara::Program* program) {
+std::string DotPrinter::print(const Program* program) {
 	this->out.str("");
 	this->out.clear();
 	this->counter = 0;
@@ -114,10 +117,10 @@ i
 */
 
 // visit_vecl in printer_dot.cpp
-std::string DotPrinter::visit_decl(const dara::Decl* decl) {
+std::string DotPrinter::visit_decl(const Decl* decl) {
 	return std::visit(
 	    overloaded{
-	        [this](const dara::TopLevelStmt& tls) {
+	        [this](const TopLevelStmt& tls) {
 		        std::string id = this->next_node_id();
 		        this->out
 		            << std::format(
@@ -129,28 +132,28 @@ std::string DotPrinter::visit_decl(const dara::Decl* decl) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const dara::VarDecl& vd) {
+	        [this](const VarDecl& vd) {
 		        std::string id = this->next_node_id();
 
 		        bool is_require = false;
 		        std::string module_path = "unknown";
 
-		        if (vd.initializer && std::holds_alternative<dara::CallExpr>(
+		        if (vd.initializer && std::holds_alternative<CallExpr>(
 		                                  vd.initializer->value)) {
 			        auto& call_expr =
-			            std::get<dara::CallExpr>(vd.initializer->value);
+			            std::get<CallExpr>(vd.initializer->value);
 
 			        if (call_expr.callee &&
-			            std::holds_alternative<dara::VarExpr>(
+			            std::holds_alternative<VarExpr>(
 			                call_expr.callee->value)) {
 				        auto& var_expr =
-				            std::get<dara::VarExpr>(call_expr.callee->value);
+				            std::get<VarExpr>(call_expr.callee->value);
 				        if (var_expr.name == "require") {
 					        is_require = true;
 					        if (!call_expr.arguments.empty() &&
-					            std::holds_alternative<dara::StringExpr>(
+					            std::holds_alternative<StringExpr>(
 					                call_expr.arguments[0]->value)) {
-						        module_path = std::get<dara::StringExpr>(
+						        module_path = std::get<StringExpr>(
 						                          call_expr.arguments[0]->value)
 						                          .value;
 					        }
@@ -177,7 +180,7 @@ std::string DotPrinter::visit_decl(const dara::Decl* decl) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const dara::ClassDecl& cd) {
+	        [this](const ClassDecl& cd) {
 		        std::string id = this->next_node_id();
 		        this->out
 		            << std::format(
@@ -231,7 +234,7 @@ std::string DotPrinter::visit_decl(const dara::Decl* decl) {
 }
 
 // print in printer_dot.cpp
-std::string DotPrinter::print(const dara::Decl* decl) {
+std::string DotPrinter::print(const Decl* decl) {
 	this->out << "digraph AST {" << std::endl;
 	this->out << "  node [shape=box, fontname=\"Courier\"];" << std::endl;
 
@@ -241,7 +244,7 @@ std::string DotPrinter::print(const dara::Decl* decl) {
 
 	auto id = std::visit(
 	    overloaded{
-	        [this](const dara::TopLevelStmt& tls) {
+	        [this](const TopLevelStmt& tls) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"TopLevelStmt\"];",
 		                                 id)
@@ -252,7 +255,7 @@ std::string DotPrinter::print(const dara::Decl* decl) {
 		        return id;
 	        },
 	        /* next vardecl dot */
-	        [this](const dara::VarDecl& vd) {
+	        [this](const VarDecl& vd) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"VarDecl({})\"];", id,
 		                                 vd.name)
@@ -444,10 +447,10 @@ color=\"red\", style=\"filled\", fillcolor=\"#ffcccc\"];", id) << std::endl;
 
 // visit_stmt in printer_dot.cpp
 
-std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
+std::string DotPrinter::visit_stmt(const Stmt* stmt) {
 	auto id = std::visit(
 	    overloaded{
-	        [this](const dara::BlockStmt& bs) {
+	        [this](const BlockStmt& bs) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"BlockStmt\"];", id)
 		                  << std::endl;
@@ -463,7 +466,7 @@ std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
 
 		        return id;
 	        },
-	        [this](const dara::IfStmt& is) {
+	        [this](const IfStmt& is) {
 		        std::string id = this->next_node_id();
 
 		        this->out << std::format("node_{} [label=\"IfStmt\"];", id)
@@ -485,7 +488,7 @@ std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
 		        }
 		        return id;
 	        },
-	        [this](const dara::WhileStmt& ws) {
+	        [this](const WhileStmt& ws) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"WhileStmt\"];", id)
 		                  << std::endl;
@@ -500,7 +503,7 @@ std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const dara::ForInStmt& ws) {
+	        [this](const ForInStmt& ws) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"ForInStmt\"];", id)
 		                  << std::endl;
@@ -519,7 +522,7 @@ std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
 		        return id;
 	        },
 
-	        [this](const dara::PrintStmt& ps) {
+	        [this](const PrintStmt& ps) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"PrintStmt\"];", id)
 		                  << std::endl;
@@ -528,7 +531,7 @@ std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const dara::AssignStmt& as) {
+	        [this](const AssignStmt& as) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"AssignStmt({})\"];",
 		                                 id, as.name)
@@ -539,7 +542,7 @@ std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
 		        return id;
 	        },
 
-	        [this](const dara::ExprStmt& es) {
+	        [this](const ExprStmt& es) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"ExprStmt\"];", id)
 		                  << std::endl;
@@ -548,7 +551,7 @@ std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const dara::IncStmt& es) {
+	        [this](const IncStmt& es) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"IncStmt\"];", id)
 		                  << std::endl;
@@ -561,7 +564,7 @@ std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const dara::DecStmt& es) {
+	        [this](const DecStmt& es) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"DecStmt\"];", id)
 		                  << std::endl;
@@ -573,7 +576,7 @@ std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const dara::CompoundAssignStmt& stmt) {
+	        [this](const CompoundAssignStmt& stmt) {
 		        //
 		        std::string op_str;
 		        switch (stmt.op) {
@@ -613,7 +616,7 @@ std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const dara::SetStmt& ss) {
+	        [this](const SetStmt& ss) {
 		        std::string id = this->next_node_id();
 
 		        // ノード自身のラベルにはプロパティ名（name）を含める
@@ -644,7 +647,7 @@ std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
 		        return id;
 	        },
 
-	        [this](const dara::CompoundSetStmt& stmt) {
+	        [this](const CompoundSetStmt& stmt) {
 		        std::string id = this->next_node_id();
 
 		        std::string op_str;
@@ -684,7 +687,7 @@ std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
 		        return id;
 	        },
 
-	        [this](const dara::BreakStmt& bs) {
+	        [this](const BreakStmt& bs) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format(
 		                         "node_{} [label=\"BreakStmt\", shape=house];",
@@ -693,7 +696,7 @@ std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const dara::ContinueStmt& cs) {
+	        [this](const ContinueStmt& cs) {
 		        std::string id = this->next_node_id();
 		        this->out
 		            << std::format(
@@ -701,7 +704,7 @@ std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
 		            << std::endl;
 		        return id;
 	        },
-	        [this](const dara::ReturnStmt& rs) {
+	        [this](const ReturnStmt& rs) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format(
 		                         "node_{} [label=\"ReturnStmt\", shape=house];",
@@ -733,11 +736,11 @@ std::string DotPrinter::visit_stmt(const dara::Stmt* stmt) {
 };
 
 // visit_expr in printer_dot.cpp
-std::string DotPrinter::visit_expr(const dara::Expr* expr) {
+std::string DotPrinter::visit_expr(const Expr* expr) {
 	return std::visit(
 	    // overloaded{[this](const IdentifierExpr& expr) {
 	    overloaded{
-	        [this](const dara::VarExpr& expr) {
+	        [this](const VarExpr& expr) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format(
 		                         "node_{} [label=\"var: {}\", shape=house];",
@@ -745,7 +748,7 @@ std::string DotPrinter::visit_expr(const dara::Expr* expr) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const dara::FunctionExpr& expr) {
+	        [this](const FunctionExpr& expr) {
 		        std::string id = this->next_node_id();
 		        std::string params_str = "";
 		        for (size_t i = 0; i < expr.parameters.size(); ++i) {
@@ -785,10 +788,10 @@ std::string DotPrinter::visit_expr(const dara::Expr* expr) {
 
 		        return id;
 	        },
-	        [this](const dara::CallExpr& expr) {
+	        [this](const CallExpr& expr) {
 		        std::string id = this->next_node_id();
-		        if (std::holds_alternative<dara::VarExpr>(expr.callee->value)) {
-			        auto& var_expr = std::get<dara::VarExpr>(expr.callee->value);
+		        if (std::holds_alternative<VarExpr>(expr.callee->value)) {
+			        auto& var_expr = std::get<VarExpr>(expr.callee->value);
 			        if (var_expr.name == "require") {
 				        this->out << std::format(
 				                         "node_{} [label=\"CallExpr\", "
@@ -822,7 +825,7 @@ std::string DotPrinter::visit_expr(const dara::Expr* expr) {
 		        }
 		        return id;
 	        },
-	        [this](const dara::IntExpr& expr) {
+	        [this](const IntExpr& expr) {
 		        std::string id = this->next_node_id();
 		        this->out
 		            << std::format(
@@ -831,7 +834,7 @@ std::string DotPrinter::visit_expr(const dara::Expr* expr) {
 		            << std::endl;
 		        return id;
 	        },
-	        [this](const dara::DoubleExpr& expr) {
+	        [this](const DoubleExpr& expr) {
 		        std::string id = this->next_node_id();
 		        this->out
 		            << std::format(
@@ -841,7 +844,7 @@ std::string DotPrinter::visit_expr(const dara::Expr* expr) {
 		        return id;
 	        },
 
-	        [this](const dara::CharExpr& expr) {
+	        [this](const CharExpr& expr) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format(
 		                         "node_{} [label=\"char {}\", shape=house];",
@@ -849,7 +852,7 @@ std::string DotPrinter::visit_expr(const dara::Expr* expr) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const dara::StringExpr& expr) {
+	        [this](const StringExpr& expr) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format(
 		                         "node_{} [label=\"string: {}\", shape=house];",
@@ -857,7 +860,7 @@ std::string DotPrinter::visit_expr(const dara::Expr* expr) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const dara::BoolExpr& expr) {
+	        [this](const BoolExpr& expr) {
 		        std::string id = this->next_node_id();
 		        this->out
 		            << std::format(
@@ -866,7 +869,7 @@ std::string DotPrinter::visit_expr(const dara::Expr* expr) {
 		            << std::endl;
 		        return id;
 	        },
-	        [this](const dara::ArrayExpr& expr) {
+	        [this](const ArrayExpr& expr) {
 		        std::string id = this->next_node_id();
 
 		        // 1. ArrayExpr 自体のノードを出力
@@ -901,7 +904,7 @@ std::string DotPrinter::visit_expr(const dara::Expr* expr) {
 	            return id;
 	        },
 	        */
-	        [this](const dara::IndexExpr& expr) {  // dummy
+	        [this](const IndexExpr& expr) {  // dummy
 		        std::string id = this->next_node_id();
 		        this->out << std::format(
 		                         "node_{} [label=\"IndexExpr\", shape=house];",
@@ -909,7 +912,7 @@ std::string DotPrinter::visit_expr(const dara::Expr* expr) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const dara::GetExpr& ge) {  // dummy
+	        [this](const GetExpr& ge) {  // dummy
 		        //dara::PrintStmt();
 		        std::string id = this->next_node_id();
 		        this->out
@@ -926,7 +929,7 @@ std::string DotPrinter::visit_expr(const dara::Expr* expr) {
 		        }
 		        return id;
 	        },
-	        [this](const dara::ThisExpr& expr) {  // dummy
+	        [this](const ThisExpr& expr) {  // dummy
 		        std::string id = this->next_node_id();
 		        this->out << std::format(
 		                         "node_{} [label=\"ThisExpr\", shape=house];",
@@ -935,7 +938,7 @@ std::string DotPrinter::visit_expr(const dara::Expr* expr) {
 		        return id;
 	        },
 
-	        [this](const dara::InfixOpExpr& expr) {
+	        [this](const InfixOpExpr& expr) {
 		        std::string op_str;
 		        switch (expr.op) {
 			        case InfixOperator::Add:  //(***)
@@ -997,7 +1000,7 @@ std::string DotPrinter::visit_expr(const dara::Expr* expr) {
 
 		        return id;
 	        },
-	        [this](const dara::LogicalOpExpr& expr) {
+	        [this](const LogicalOpExpr& expr) {
 		        std::string op_str;
 		        switch (expr.op) {
 			        case LogicalOperator::And:
@@ -1015,7 +1018,7 @@ std::string DotPrinter::visit_expr(const dara::Expr* expr) {
 		                  << std::endl;
 		        return id;
 	        },
-	        [this](const dara::PrefixOpExpr& expr) {
+	        [this](const PrefixOpExpr& expr) {
 		        std::string op_str;
 		        switch (expr.op) {
 			        case PrefixOperator::Pos:
@@ -1046,7 +1049,7 @@ std::string DotPrinter::visit_expr(const dara::Expr* expr) {
 
 		        return id;
 	        },
-	        [this](const dara::PostfixOpExpr& expr) {
+	        [this](const PostfixOpExpr& expr) {
 		        std::string op_str;
 		        switch (expr.op) {
 				        /*

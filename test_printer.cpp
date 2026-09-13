@@ -21,6 +21,8 @@
 // #include "interpreter.hpp"
 
 using namespace dara::frontend;
+using namespace dara::lexer;
+using namespace dara::combinator;
 
 // 空白や改行を無視して本質的な構造だけを比較するヘルパー
 inline std::string remove_whitespace(std::string str) {
@@ -68,7 +70,7 @@ TEST_CASE("Printer: StringPrinter generates correct S-expression format") {
     
     case_title = "単一の数値 (IntExpr) の出力";
     SUBCASE(case_title) {
-        auto expr = std::make_unique<dara::Expr>(dara::IntExpr{42});
+        auto expr = std::make_unique<Expr>(IntExpr{42});
         StringPrinter printer;
         // そのまま数値が出力されること
         CHECK(printer.print(expr.get()) == "42");
@@ -76,7 +78,7 @@ TEST_CASE("Printer: StringPrinter generates correct S-expression format") {
 
     case_title = "単一の文字 (CharExpr) の出力: シングルクォート付き";
     SUBCASE(case_title) {
-        auto expr = std::make_unique<dara::Expr>(dara::CharExpr{'a'});
+        auto expr = std::make_unique<Expr>(CharExpr{'a'});
         StringPrinter printer;
         // シングルクォートで囲まれていることの確認
         CHECK(printer.print(expr.get()) == "'a'");
@@ -84,10 +86,10 @@ TEST_CASE("Printer: StringPrinter generates correct S-expression format") {
 
     case_title = "二項演算子 (InfixOpExpr) の出力: 1 + 2";
     SUBCASE(case_title) {
-        auto lhs = std::make_unique<dara::Expr>(dara::IntExpr{1});
-        auto rhs = std::make_unique<dara::Expr>(dara::IntExpr{2});
-        auto expr = std::make_unique<dara::Expr>(
-            dara::InfixOpExpr{InfixOperator::Add, std::move(lhs), std::move(rhs)});
+        auto lhs = std::make_unique<Expr>(IntExpr{1});
+        auto rhs = std::make_unique<Expr>(IntExpr{2});
+        auto expr = std::make_unique<Expr>(
+            InfixOpExpr{InfixOperator::Add, std::move(lhs), std::move(rhs)});
 
         StringPrinter printer;
         // S式（前置記法）になっていること
@@ -96,9 +98,9 @@ TEST_CASE("Printer: StringPrinter generates correct S-expression format") {
 
     case_title = "前置演算子 (PrefixOpExpr) の出力: -5";
     SUBCASE(case_title) {
-        auto rhs = std::make_unique<dara::Expr>(dara::IntExpr{5});
-        auto expr = std::make_unique<dara::Expr>(
-            dara::PrefixOpExpr{PrefixOperator::Neg, std::move(rhs)});
+        auto rhs = std::make_unique<Expr>(IntExpr{5});
+        auto expr = std::make_unique<Expr>(
+            PrefixOpExpr{PrefixOperator::Neg, std::move(rhs)});
 
         StringPrinter printer;
         CHECK(printer.print(expr.get()) == "(- 5)");
@@ -120,14 +122,14 @@ TEST_CASE("Printer: StringPrinter generates correct S-expression format") {
     case_title = "複雑なネストされた式の出力: (1 + 2) * 3";
     SUBCASE(case_title) {
         // (1 + 2) の部分
-        auto lhs_inner = std::make_unique<dara::Expr>(dara::IntExpr{1});
-        auto rhs_inner = std::make_unique<dara::Expr>(dara::IntExpr{2});
-        auto add_expr = std::make_unique<dara::Expr>(dara::InfixOpExpr{
+        auto lhs_inner = std::make_unique<Expr>(IntExpr{1});
+        auto rhs_inner = std::make_unique<Expr>(IntExpr{2});
+        auto add_expr = std::make_unique<Expr>(InfixOpExpr{
             InfixOperator::Add, std::move(lhs_inner), std::move(rhs_inner)});
 
         // * 3 の部分
-        auto rhs_outer = std::make_unique<dara::Expr>(dara::IntExpr{3});
-        auto expr = std::make_unique<dara::Expr>(dara::InfixOpExpr{
+        auto rhs_outer = std::make_unique<Expr>(IntExpr{3});
+        auto expr = std::make_unique<Expr>(InfixOpExpr{
             InfixOperator::Mul, std::move(add_expr), std::move(rhs_outer)});
 
         StringPrinter printer;
@@ -148,7 +150,7 @@ TEST_CASE("Printer: DotPrinter generates correct DOT format (Manual AST)") {
     SUBCASE("単一の数値 (IntExpr) の出力") {
         file_slug = "int_expr";
         // 1. テスト用のASTを手動で組み立てる (42)
-        auto expr = std::make_unique<dara::Expr>(dara::IntExpr{42});
+        auto expr = std::make_unique<Expr>(IntExpr{42});
 
         // 2. 出力結果を取得
         DotPrinter printer;
@@ -173,10 +175,10 @@ node_00001 [label="integer: 42", shape=house];
     SUBCASE("二項演算子 (InfixOpExpr) の出力: 10 + 20") {
         file_slug = "infixopexpr";
         // 1. テスト用のASTを手動で組み立てる (1 + 2)
-        auto lhs = std::make_unique<dara::Expr>(dara::IntExpr{10});
-        auto rhs = std::make_unique<dara::Expr>(dara::IntExpr{20});
-        auto expr = std::make_unique<dara::Expr>(
-            dara::InfixOpExpr{InfixOperator::Add, std::move(lhs), std::move(rhs)});
+        auto lhs = std::make_unique<Expr>(IntExpr{10});
+        auto rhs = std::make_unique<Expr>(IntExpr{20});
+        auto expr = std::make_unique<Expr>(
+            InfixOpExpr{InfixOperator::Add, std::move(lhs), std::move(rhs)});
 
         // 2. 出力結果を取得
         DotPrinter printer;

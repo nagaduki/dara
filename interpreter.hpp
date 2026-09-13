@@ -10,16 +10,16 @@
 #include "builtin.hpp"
 #include "environment.hpp"
 
-// //
-template <typename T>
-using Result = std::expected<T, InterpreterError>;
+// template <typename T>
+// using Result = std::expected<T, dara::error::InterpreterError>;
 
 namespace dara::backend {
 
-std::string to_string(const dara::Value& val);
+std::string to_string(const Value& val);
 
 class Interpreter {
    public:
+	dara::backend::Allocator get_allocator() { return alloc; }
 	Interpreter(Interpreter&&) = default;  //(***)
 	~Interpreter() {
 		if (this->env) {
@@ -32,66 +32,78 @@ class Interpreter {
 		for (auto& m_env : this->module_envs) {
 			if (m_env) m_env->clear();
 		}
+        this->module_cache.clear();
+        this->module_envs.clear();
+        this->globals.reset();
 	}
-	std::unordered_map<std::string, std::shared_ptr<dara::runtime::Instance>>
+	std::unordered_map<std::string, std::shared_ptr<dara::backend::Instance>>
 	    module_cache;
-	std::vector<dara::Program> module_asts;
+	std::vector<dara::ast::Program> module_asts;
 	std::vector<std::filesystem::path> dir_stack;
-	Result<dara::Value> load_module(const std::string& path);
-	Result<dara::Value> eval(const dara::Expr* expr) { return visit_expr(expr); }
-	Result<void> exec(const dara::Program* program) {
+	dara::ast::Result<Value> load_module(const std::string& path);
+	dara::ast::Result<Value> eval(const dara::ast::Expr* expr) {
+		return visit_expr(expr);
+	}
+	dara::ast::Result<void> exec(const dara::ast::Program* program) {
 		return visit_program(program);
 	}
-	Result<void> exec(const dara::Decl* decl) { return visit_decl(decl); }
-	Result<void> visit_program(const dara::Program* program);
-	Result<void> visit_decl(const dara::Decl* decl);
-	Result<void> visit_stmt(const dara::Stmt* expr);
-	Result<dara::Value> visit_expr(const dara::Expr* expr);
+	dara::ast::Result<void> exec(const dara::ast::Decl* decl) {
+		return visit_decl(decl);
+	}
+	dara::ast::Result<void> visit_program(const dara::ast::Program* program);
+	dara::ast::Result<void> visit_decl(const dara::ast::Decl* decl);
+	dara::ast::Result<void> visit_stmt(const dara::ast::Stmt* expr);
+	dara::ast::Result<Value> visit_expr(const dara::ast::Expr* expr);
 
 	explicit Interpreter(std::ostream& out_stream = std::cout)
-	    : out(out_stream) { /* (*) */
-
+	    : out(out_stream),
+	      arena(),
+	      alloc(&arena),
+	      globals(std::allocate_shared<Environment>(alloc, alloc, nullptr)),
+	      env(globals) { /* (*) */
 		this->define_native_classes();
 		this->define_native_functions();
 
 		/*
 		this->env->define(
 		    "clock",
-		    dara::Value{.data = std::make_shared<dara::backend::BuiltinClock>()});
+		    Value{.data =
+		std::make_shared<dara::backend::BuiltinClock>()});
 
 		this->env->define(
 		    "len",
-		    dara::Value{.data = std::make_shared<dara::backend::BuiltinLen>()});
+		    Value{.data = std::make_shared<dara::backend::BuiltinLen>()});
 
 		this->env->define(
 		    "type",
-		    dara::Value{.data = std::make_shared<dara::backend::BuiltinType>()});
+		    Value{.data =
+		std::make_shared<dara::backend::BuiltinType>()});
 
 		this->env->define(
 		    "assert",
-		    dara::Value{.data =
+		    Value{.data =
 		                   std::make_shared<dara::backend::BuiltinAssert>()});
 		this->env->define(
 		    "props",
-		    dara::Value{.data = std::make_shared<dara::backend::BuiltinProps>()});
-		this->env->define(
+		    Value{.data =
+		std::make_shared<dara::backend::BuiltinProps>()}); this->env->define(
 		    "id",
-		    dara::Value{.data = std::make_shared<dara::backend::BuiltinId>()});
+		    Value{.data = std::make_shared<dara::backend::BuiltinId>()});
 		this->env->define(
 		    "is_a",
-		    dara::Value{.data = std::make_shared<dara::backend::BuiltinIs_A>()});
-		this->env->define(
+		    Value{.data =
+		std::make_shared<dara::backend::BuiltinIs_A>()}); this->env->define(
 		    "is_proper",
-		    dara::Value{.data =
+		    Value{.data =
 		                   std::make_shared<dara::backend::BuiltinIs_Proper>()});
 		*/
 	}
 
-	std::optional<dara::Value> get_variable_for_test(const std::string& name) {
+	std::optional<Value> get_variable_for_test(const std::string& name) {
 		// return this->env.get()->get(name);
 		return this->env->get(name);
 	}
-	std::optional<dara::Value> get_variable(const std::string& name) {
+	std::optional<Value> get_variable(const std::string& name) {
 		// return this->env.get()->get(name);
 		return this->env->get(name);
 	}
@@ -99,28 +111,36 @@ class Interpreter {
 
 	void set_environment(std::shared_ptr<Environment> env) { this->env = env; }
 
-	bool is_truthy(const dara::Value& val);
+	bool is_truthy(const Value& val);
 
    private:
 	std::ostream& out;
+	std::pmr::monotonic_buffer_resource arena;
+	dara::backend::Allocator alloc;
 
 	// std::shared_ptr<Environment> env = std::make_shared<Environment>();
-	std::shared_ptr<Environment> globals = std::make_shared<Environment>();
-	std::shared_ptr<Environment> env = globals;
+	// std::shared_ptr<Environment> globals = std::make_shared<Environment>();
+	std::shared_ptr<Environment> globals;
+	// std::shared_ptr<Environment> env = globals;
+	std::shared_ptr<Environment> env;
 	std::vector<std::shared_ptr<Environment>> module_envs;
 
-	Result<void> execute_for_iteration(const std::string& var_name,
-	                                   const dara::Value& val, dara::Stmt* body);
+	dara::ast::Result<void> execute_for_iteration(const std::string& var_name,
+	                                              const Value& val,
+	                                              dara::ast::Stmt* body);
 
-	Result<dara::Value> eval_infix(InfixOperator, const dara::Value&,
-	                              const dara::Value&, /* 1 */
-	                              const dara::Expr*);
-	Result<dara::Value> eval_prefix(PrefixOperator, const dara::Value&,
-	                               const dara::Expr*); /* 2 */
-	Result<dara::Value> eval_postfix(PostfixOperator, const dara::Value&,
-	                                const dara::Expr*); /* 3 */
-	Result<dara::Value> eval_mixfix(MixfixOperator, const dara::Value&,
-	                               const dara::Expr*); /* 4 */
+	dara::ast::Result<Value> eval_infix(dara::lexer::InfixOperator,
+	                                    const Value&, const Value&, /* 1 */
+	                                    const dara::ast::Expr*);
+	dara::ast::Result<Value> eval_prefix(dara::lexer::PrefixOperator,
+	                                     const Value&,
+	                                     const dara::ast::Expr*); /* 2 */
+	dara::ast::Result<Value> eval_postfix(dara::lexer::PostfixOperator,
+	                                      const Value&,
+	                                      const dara::ast::Expr*); /* 3 */
+	dara::ast::Result<Value> eval_mixfix(dara::lexer::MixfixOperator,
+	                                     const Value&,
+	                                     const dara::ast::Expr*); /* 4 */
 	int factorial(int n);
 
 	void define_native_classes() {
@@ -131,13 +151,20 @@ class Interpreter {
 
 		// std::unordered_map<std::string, Value> object_methods;
 
-		object_methods["type"] = Value{.data = std::make_shared<BuiltinType>()};
+		// object_methods["type"] = Value{.data =
+		// std::make_shared<BuiltinType>()};
+		object_methods["type"] =
+		    Value{.data = std::allocate_shared<BuiltinType>(this->alloc)};
 		object_methods["props"] =
-		    Value{.data = std::make_shared<BuiltinProps>()};
-		object_methods["id"] = Value{.data = std::make_shared<BuiltinId>()};
-		auto object_class = std::make_shared<dara::runtime::Class>(  //***
-		    "Object", nullptr,
-		    std::vector<std::shared_ptr<dara::runtime::Class>>{},
+		    // Value{.data = std::make_shared<BuiltinProps>()};
+		    Value{.data = std::allocate_shared<BuiltinProps>(this->alloc)};
+		// object_methods["id"] = Value{.data = std::make_shared<BuiltinId>()};
+		object_methods["id"] =
+		    Value{.data = std::allocate_shared<BuiltinId>(this->alloc)};
+		// auto object_class = std::make_shared<dara::backend::Class>(  //***
+		auto object_class = std::allocate_shared<dara::backend::Class>(  //***
+		    this->alloc, "Object", nullptr,
+		    std::vector<std::shared_ptr<dara::backend::Class>>{},
 		    std::move(object_methods));
 
 		// auto object_class = std::make_shared<dara::runtime::Class>("Object",
@@ -151,47 +178,52 @@ class Interpreter {
 		// this->env->define(
 		this->globals->define(
 		    "clock",
-		    dara::Value{.data = std::make_shared<dara::backend::BuiltinClock>()});
+		    //Value{.data = std::make_shared<dara::backend::BuiltinClock>()});
+		    Value{.data = std::allocate_shared<dara::backend::BuiltinClock>(this->alloc)});
 
 		// this->env->define(
 		this->globals->define(
 		    "len",
-		    dara::Value{.data = std::make_shared<dara::backend::BuiltinLen>()});
+		    //Value{.data = std::make_shared<dara::backend::BuiltinLen>()});
+		    Value{.data = std::allocate_shared<dara::backend::BuiltinLen>(this->alloc)});
 
 		// this->env->define(
 		this->globals->define(
 		    "type",
-		    dara::Value{.data = std::make_shared<dara::backend::BuiltinType>()});
+		    //Value{.data = std::make_shared<dara::backend::BuiltinType>()});
+		    Value{.data = std::allocate_shared<dara::backend::BuiltinType>(this->alloc)});
 
 		// this->env->define(
 		this->globals->define(
 		    "assert",
-		    dara::Value{.data =
-		                   std::make_shared<dara::backend::BuiltinAssert>()});
+		    //Value{.data = std::make_shared<dara::backend::BuiltinAssert>()});
+		    Value{.data = std::allocate_shared<dara::backend::BuiltinAssert>(this->alloc)});
 		// this->env->define(
 		this->globals->define(
 		    "props",
-		    dara::Value{.data = std::make_shared<dara::backend::BuiltinProps>()});
+		    //Value{.data = std::make_shared<dara::backend::BuiltinProps>()});
+		    Value{.data = std::allocate_shared<dara::backend::BuiltinProps>(this->alloc)});
 		// this->env->define(
 		this->globals->define(
-		    "id",
-		    dara::Value{.data = std::make_shared<dara::backend::BuiltinId>()});
+		    //"id", Value{.data = std::make_shared<dara::backend::BuiltinId>()});
+		    "id", Value{.data = std::allocate_shared<dara::backend::BuiltinId>(this->alloc)});
 		// this->env->define(
 		this->globals->define(
 		    "is_a",
-		    dara::Value{.data = std::make_shared<dara::backend::BuiltinIs_A>()});
+		    //Value{.data = std::make_shared<dara::backend::BuiltinIs_A>()});
+		    Value{.data = std::allocate_shared<dara::backend::BuiltinIs_A>(this->alloc)});
 		// this->env->define(
 		this->globals->define(
 		    "is_proper",
-		    dara::Value{.data =
-		                   std::make_shared<dara::backend::BuiltinIs_Proper>()});
+		    //Value{.data = std::make_shared<dara::backend::BuiltinIs_Proper>()});
+		    Value{.data = std::allocate_shared<dara::backend::BuiltinIs_Proper>(this->alloc)});
 		this->globals->define(
 		    "require",
-		    dara::Value{.data =
-		                   std::make_shared<dara::backend::BuiltinRequire>()});
+		    //Value{.data = std::make_shared<dara::backend::BuiltinRequire>()});
+		    Value{.data = std::allocate_shared<dara::backend::BuiltinRequire>(this->alloc)});
 	}
 
-	// bool is_truthy(const dara::Value& val);
+	// bool is_truthy(const Value& val);
 	struct EnvironmentGuard {
 		Interpreter* interpreter;
 		std::shared_ptr<Environment> previous_env;

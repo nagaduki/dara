@@ -15,6 +15,9 @@
 char* case_title;
 char* file_slug;
 
+using namespace dara::ast;
+using namespace dara::lexer;
+
 TEST_CASE("Lexer: Keyword 'print'") {
     SUBCASE("Valid print keyword") {
         Source s("print 1 + 2");

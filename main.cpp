@@ -13,6 +13,8 @@
 #define PRINT_LINE() \
 	std::cout << "Line: " << __LINE__ << " (in " << __FILE__ << ")" << std::endl
 
+using namespace dara::ast;
+
 void run_file(const char* file_path) {
 	DotPrinter dotprinter;
 	std::string file_name = "main_run";
@@ -29,14 +31,15 @@ void run_file(const char* file_path) {
 	Source s(source_code.c_str());
 	dara::frontend::Parser p(&s);
 	dara::backend::Interpreter interpreter;
-    interpreter.dir_stack.push_back(std::filesystem::absolute(file_path).parent_path());
+	interpreter.dir_stack.push_back(
+	    std::filesystem::absolute(file_path).parent_path());
 
 	auto program_res = p.program();
 	if (!program_res) {
 		std::cerr << "syntax error: " << program_res.error().message << "\n";
 		return;
 	}
-	dara::Program program = std::move(program_res.value());
+	Program program = std::move(program_res.value());
 
 	std::string dot_result = dotprinter.print(&program);
 	auto save_res =
@@ -60,7 +63,7 @@ void run_file(const char* file_path) {
 }
 void run_repl() {
 	dara::backend::Interpreter interpreter;
-    interpreter.dir_stack.push_back(std::filesystem::current_path());
+	interpreter.dir_stack.push_back(std::filesystem::current_path());
 	// DotPrinter printer;
 	linenoise::SetHistoryMaxLen(100);
 	std::string file_name = "main_repl";
@@ -93,28 +96,28 @@ void run_repl() {
 			Source s(input.c_str());
 			dara::frontend::Parser parser(&s);
 			// std::vector<std::unique_ptr<dara::Decl>> program_ast;
-			dara::Program program;
+			Program program;
 			// auto res = parse_expr(&s);
 
 			/* main loop */
 			while (!s.isEnd()) {
 				s.skip_whitespace();
-				spaces(&s);
+				dara::lexer::spaces(&s);
 				if (s.isEnd()) {
 					break;
 				}
 
-                /*
+				/*
 				auto res = parser.decl();
 				// auto res = parser.program();
 				if (!res.has_value()) {
-					std::cerr << "Error: " << res.error().message << "\n";
-					program.declarations.clear();
-					// continue;
-					break;
+				    std::cerr << "Error: " << res.error().message << "\n";
+				    program.declarations.clear();
+				    // continue;
+				    break;
 				}
 				program.declarations.push_back(std::move(res.value()));
-                */
+				*/
 
 				auto program_res = parser.program();
 				if (!program_res) {

@@ -5,6 +5,10 @@
 #include <expected>
 #include <memory>
 
+namespace dara::lexer {
+
+using namespace dara::combinator;
+
 #define PRINT_LINE() \
 	std::cout << "Line: " << __LINE__ << " (in " << __FILE__ << ")" << std::endl
 
@@ -28,8 +32,8 @@ Rule<char> sym(char ch) { return token(char1(ch)); }
 Rule<std::string> sym(std::string str) { return token(string1(str)); }
 
 Rule<std::string> string1(const std::string& str) {
-	Rule<std::string> np =
-	    [=](Source* s) -> std::expected<std::string, SyntaxError> {
+	Rule<std::string> np = [=](Source* s)
+	    -> std::expected<std::string, dara::error::SynataxError> {
 		Source backup = *s;
 		for (char c : str) {
 			// char1 (*it)(s);
@@ -45,17 +49,16 @@ Rule<std::string> string1(const std::string& str) {
 	return np;
 };
 
-
 Rule<bool> boolean_literal =
-    [](Source* s) -> std::expected<bool, SyntaxError> {
+    [](Source* s) -> std::expected<bool, dara::error::SynataxError> {
 	if (True(s)) return true;
 	if (False(s)) return false;
 	return std::unexpected(s->make_error("not a boolean literal"));
 };
 
-
 /* boolean_literal fix but "false" is not working */
-Rule<bool> _boolean_literal = [](Source* s) -> std::expected<bool, SyntaxError> {
+Rule<bool> _boolean_literal =
+    [](Source* s) -> std::expected<bool, dara::error::SynataxError> {
 	Source backup = *s;
 	auto res_true = True(s);
 	if (!res_true) {
@@ -71,21 +74,19 @@ Rule<bool> _boolean_literal = [](Source* s) -> std::expected<bool, SyntaxError> 
 		return std::unexpected(s->make_error("not a boolean literal"));
 	}
 	return false;
-	//return std::unexpected(s->make_error("not a boolean literal"));
+	// return std::unexpected(s->make_error("not a boolean literal"));
 };
 
-Rule<std::monostate> nil_literal = [](Source* s) 
--> std::expected<std::monostate, SyntaxError> {
+Rule<std::monostate> nil_literal =
+    [](Source* s) -> std::expected<std::monostate, dara::error::SynataxError> {
 	if (Nil(s)) return std::monostate{};
 	return std::unexpected(s->make_error("not a nil literal"));
 };
 
-
-
 // boolean_literal
 /*
 Rule<std::string> _boolean_literal =
-    [](Source* s) -> std::expected<std::string, SyntaxError> {
+    [](Source* s) -> std::expected<std::string, dara::error::SynataxError> {
     Source backup = *s;
 
     auto boolean_parser = ( True || False )(s);
@@ -104,13 +105,13 @@ Rule<std::string> _boolean_literal =
 
 // string_literal
 Rule<std::string> string_literal =
-    [](Source* s) -> std::expected<std::string, SyntaxError> {
+    [](Source* s) -> std::expected<std::string, dara::error::SynataxError> {
 	Source backup = *s;
 
 	// auto string_parser = token(many1(letter));
 	// auto string_parser = token(DQuote + many1(letter) + DQuote );
 	// auto string_parser = token(DQuote + many1(anyBut('"')) + DQuote );
-	//auto string_parser = token(DQuote >> many1(anyBut('"')) << DQuote);
+	// auto string_parser = token(DQuote >> many1(anyBut('"')) << DQuote);
 	auto string_parser = token(char1('"') >> many1(anyBut('"')) << char1('"'));
 
 	auto res = string_parser(s);
@@ -124,13 +125,15 @@ Rule<std::string> string_literal =
 	return str;
 };
 
-Rule<int> integer_literal = [](Source* s) -> std::expected<int, SyntaxError> {
+Rule<int> integer_literal =
+    [](Source* s) -> std::expected<int, dara::error::SynataxError> {
 	Source backup = *s;
 
 	auto digits_parser = token(many1(digit));
 
 	return digits_parser(s).and_then(
-	    [&](const std::string& str) -> std::expected<int, SyntaxError> {
+	    [&](const std::string& str)
+	        -> std::expected<int, dara::error::SynataxError> {
 		    try {
 			    int val = std::stoi(str);
 			    return val;
@@ -144,14 +147,16 @@ Rule<int> integer_literal = [](Source* s) -> std::expected<int, SyntaxError> {
 	    });
 };
 
-Rule<double> double_literal = [](Source* s) -> std::expected<double, SyntaxError> {
+Rule<double> double_literal =
+    [](Source* s) -> std::expected<double, dara::error::SynataxError> {
 	Source backup = *s;
 
-	//auto digits_parser = token(many1(digit));
+	// auto digits_parser = token(many1(digit));
 	auto double_parser = token(many1(digit) + char1('.') + many1(digit));
 
 	return double_parser(s).and_then(
-	    [&](const std::string& str) -> std::expected<double, SyntaxError> {
+	    [&](const std::string& str)
+	        -> std::expected<double, dara::error::SynataxError> {
 		    try {
 			    double val = std::stod(str);
 			    return val;
@@ -165,17 +170,16 @@ Rule<double> double_literal = [](Source* s) -> std::expected<double, SyntaxError
 	    });
 };
 
-
 /*
 Rule<std::string> identifier =
-    token([](Source* s) -> std::expected<std::string, SyntaxError> {
-        return (letter + many(alphaNum))(s);
+    token([](Source* s) -> std::expected<std::string, dara::error::SynataxError>
+{ return (letter + many(alphaNum))(s);
     });
 */
 
 // identifier
 Rule<std::string> identifier =
-    [](Source* s) -> std::expected<std::string, SyntaxError> {
+    [](Source* s) -> std::expected<std::string, dara::error::SynataxError> {
 	Source backup = *s;
 
 	// auto identifier_parser = token(many1(alphaNum));
@@ -196,8 +200,9 @@ Rule<std::string> identifier =
 
 /* for stmt */
 Rule<std::string> keyword(const std::string& kw) {
-	return [=](Source* s) -> std::expected<std::string, SyntaxError> {
-        s->skip_whitespace();
+	return [=](Source* s)
+	           -> std::expected<std::string, dara::error::SynataxError> {
+		s->skip_whitespace();
 		Source backup = *s;
 
 		auto res = string1(kw)(s);
@@ -217,8 +222,10 @@ Rule<std::string> keyword(const std::string& kw) {
 				}
 			}
 		}
-		//auto space_res = spaces(s);
-        s->skip_whitespace();
+		// auto space_res = spaces(s);
+		s->skip_whitespace();
 		return res;
 	};
 }
+
+}  // namespace dara::lexer

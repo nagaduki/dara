@@ -11,9 +11,14 @@
 
 namespace dara::backend {
 
-Result<dara::Value> Function::call(Interpreter& interpreter,
-                                  const std::vector<dara::Value>& arguments) {
-	auto local_env = std::make_shared<Environment>(this->closure);
+using namespace dara::ast;
+
+Result<Value> Function::call(Interpreter& interpreter,
+                             const std::vector<Value>& arguments) {
+	// auto local_env = std::make_shared<Environment>(this->closure);
+	auto local_env = std::allocate_shared<Environment>(
+	    interpreter.get_allocator(), interpreter.get_allocator(),
+	    this->closure);
 
 	for (size_t i = 0; i < declaration->parameters.size(); ++i) {
 		local_env->define(declaration->parameters[i], arguments[i]);
@@ -24,13 +29,13 @@ Result<dara::Value> Function::call(Interpreter& interpreter,
 	try {
 		interpreter.set_environment(local_env);
 
-        /* (loop) */
+		/* (loop) */
 		for (const auto& stmt : declaration->body) {
-		    auto res = interpreter.exec(stmt.get()); 
+			auto res = interpreter.exec(stmt.get());
 			//
 			if (!res) {
 				interpreter.set_environment(previous_env);
-                return std::unexpected(res.error()); //(*)
+				return std::unexpected(res.error());  //(*)
 			}
 		}
 
@@ -41,7 +46,18 @@ Result<dara::Value> Function::call(Interpreter& interpreter,
 		return ret.value;
 	}
 
-	return dara::Value{std::monostate{}};
+	return Value{std::monostate{}};
+}
+
+std::shared_ptr<Function> Function::bind(
+    Interpreter& interpreter,
+    std::shared_ptr<dara::backend::Instance> instance) {
+	auto env = std::allocate_shared<Environment>(interpreter.get_allocator(),
+	                                             interpreter.get_allocator(),
+	                                             this->closure);
+	env->define("this", Value{instance});
+	return std::allocate_shared<Function>(interpreter.get_allocator(),
+	                                      this->declaration, env);
 }
 
 }  // namespace dara::backend

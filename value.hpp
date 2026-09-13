@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <variant>
+#include <memory_resource>
 // #include "callable.hpp"
 #include "lexer.hpp"
 //#include "class.hpp"
@@ -14,18 +15,26 @@ namespace dara::backend {
     class Callable;
 }
 
-namespace dara::runtime {
+namespace dara::backend {
     class Class;
     class Instance;
+    class Callable;
 }
 
-namespace dara {
-
+/*
 namespace backend {
 class Callable;
 }
+*/
+
+namespace dara::backend {
 
 struct Value;
+
+using Allocator = std::pmr::polymorphic_allocator<std::byte>;
+//using String = std::pmr::basic_string<char>;
+using String = std::pmr::string;
+using Array = std::pmr::vector<Value>;
 
 std::string to_string(const Value& val);
 
@@ -37,13 +46,16 @@ struct Range {
 	}
 };
 
-using ValueData = std::variant<char, int, double, std::string, bool, Range,
+using ValueData = std::variant<char, int, double, bool, Range,
+                               //std::string,
+                               String,
                                //
-                               std::vector<Value>,
+                               //std::vector<Value>,
+                               Array,
                                //
-                               std::shared_ptr<dara::backend::Callable>,
-                               std::shared_ptr<dara::runtime::Class>,
-                               std::shared_ptr<dara::runtime::Instance>,
+                               std::shared_ptr<Callable>,
+                               std::shared_ptr<Class>,
+                               std::shared_ptr<Instance>,
                                //
                                std::monostate>;
 

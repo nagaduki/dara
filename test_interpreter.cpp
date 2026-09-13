@@ -18,10 +18,13 @@
 // #include <doctest/doctest.h>
 // #include <iostream>
 #include <memory>
+#include <variant>
 // #include <string>
 // #include <vnariant>
 
 using namespace dara::frontend;
+using namespace dara::ast;
+using namespace dara::lexer;
 using namespace dara::backend;
 
 TEST_CASE("Interpreter: Module Loading (require)") {
@@ -35,7 +38,7 @@ TEST_CASE("Interpreter: Module Loading (require)") {
 
 	// スクリプト実行用の共通ヘルパー
 	auto run_script_and_get = [](const char* input,
-	                             const std::string& var_name) -> dara::Value {
+	                             const std::string& var_name) -> Value {
 		Source s(input);
 		dara::frontend::Parser p(&s);
 		dara::backend::Interpreter interpreter;
@@ -46,9 +49,10 @@ TEST_CASE("Interpreter: Module Loading (require)") {
 			                         program_res.error().message);
 		}
 
-		static std::list<dara::Program> test_asts;
-		test_asts.push_back(std::move(program_res.value()));
-		const auto& program = test_asts.back();
+        interpreter.module_asts.push_back(std::move(program_res.value()));
+		//static std::list<Program> test_asts;
+		//test_asts.push_back(std::move(program_res.value()));
+		const auto& program = interpreter.module_asts.back();
 
 		for (const auto& decl : program.declarations) {
 			auto exec_res = interpreter.exec(decl.get());
@@ -109,7 +113,7 @@ TEST_CASE("Interpreter: Module Loading (require)") {
 
 TEST_CASE("Interpreter: Floating-Point Operations") {
 	// 既存のテストと同じヘルパー関数を用意
-	auto try_eval = [](const char* input) -> dara::Value {
+	auto try_eval = [](const char* input) -> Value {
 		Source s(input);
 		dara::frontend::Parser p1(&s);
 		auto ast = p1.expr();
@@ -125,18 +129,38 @@ TEST_CASE("Interpreter: Floating-Point Operations") {
 		return res.value();
 	};
 
-	// ヘルパー：dara::Valueから直接doubleを取り出して比較する
+	// ヘルパー：Valueから直接doubleを取り出して比較する
 	// (※ 浮動小数点の誤差を考慮し、doctestの Approx
 	// を使うのがベストプラクティスです)
 	auto eval_double = [&](const char* input) {
 		return std::get<double>(try_eval(input).data);
 	};
-	auto eval_string = [&](const char* input) {
-		return std::get<std::string>(try_eval(input).data);
+	auto _eval_string = [&](const char* input) {
+		//return std::get<std::string>(try_eval(input).data);
+		return std::get<String>(try_eval(input).data);
 	};
 	auto eval_bool = [&](const char* input) {
 		return std::get<bool>(try_eval(input).data);
 	};
+
+    auto eval_string = [&](const char* input) -> std::string {
+        Source s(input);
+        Parser p1(&s);
+        auto ast = p1.expr();
+        if (!ast) throw std::runtime_error(ast.error().message);
+        
+        dara::backend::Interpreter interpreter;
+        auto res = interpreter.visit_expr(ast.value().get());
+        if (!res) throw std::runtime_error(res.error().message);
+        
+        // 🌟 インタプリタ(アリーナ)が生きているうちに、標準の std::string にディープコピーする！
+        const String& pmr_str = std::get<String>(res.value().data);
+        return std::string(pmr_str.c_str()); 
+    };
+
+
+
+
 
 	SUBCASE("1. Basic Double Arithmetic (小数同士の四則演算)") {
 		CHECK(eval_double("1.5 + 2.5") == doctest::Approx(4.0));
@@ -160,6 +184,7 @@ TEST_CASE("Interpreter: Floating-Point Operations") {
 		CHECK(eval_double("-1.5 + 2.5") == doctest::Approx(1.0));
 	}
 
+    // (****)
 	SUBCASE("4. String Concatenation with Double (文字列との美しい連結)") {
 		// 1.100000 ではなく、1.1 として出力されること（不要なゼロの削除）を検証
 		CHECK(eval_string(R"("Version " + 1.5)") == "Version 1.5");
@@ -182,7 +207,7 @@ TEST_CASE("Interpreter: Floating-Point Operations") {
 
 TEST_CASE("Interpreter: Implicit Object Inheritance and Builtin Methods") {
 	auto run_script_and_get = [](const char* input,
-	                             const std::string& var_name) -> dara::Value {
+	                             const std::string& var_name) -> Value {
 		Source s(input);
 		dara::frontend::Parser p(&s);
 		dara::backend::Interpreter interpreter;
@@ -195,7 +220,7 @@ TEST_CASE("Interpreter: Implicit Object Inheritance and Builtin Methods") {
 		}
 
 		// 🌟 修正2: ASTの寿命をテスト全体まで延ばす (ASan回避)
-		static std::list<dara::Program> test_asts;
+		static std::list<Program> test_asts;
 		test_asts.push_back(std::move(program_res.value()));
 		const auto& program = test_asts.back();
 
@@ -219,11 +244,11 @@ TEST_CASE("Interpreter: Implicit Object Inheritance and Builtin Methods") {
 	};
 
 	auto _run_script_and_get = [](const char* input,
-	                              const std::string& var_name) -> dara::Value {
+	                              const std::string& var_name) -> Value {
 		Source s(input);
 		dara::frontend::Parser p(&s);
 		dara::backend::Interpreter interpreter;
-		dara::Program program;
+		Program program;
 
 		while (!s.isEnd()) {
 			spaces(&s);
@@ -310,19 +335,28 @@ TEST_CASE("Interpreter: Implicit Object Inheritance and Builtin Methods") {
 		// --- 2. コンストラクタと static メソッドの動作チェック ---
 		// Duck.create_mallard()
 		// 経由で生成され、プロパティが正しくセットされているか？
-		CHECK(std::get<std::string>(
+		//CHECK(std::get<std::string>(
+		CHECK(std::get<String>(
 		          run_script_and_get(script, "d_name").data) == "Mallard");
-		CHECK(std::get<std::string>(
+		//CHECK(std::get<std::string>(
+		CHECK(std::get<String>(
 		          run_script_and_get(script, "d_color").data) == "green");
 
 		// --- 3. Mixin メソッドと props() のチェック ---
-		dara::Value props_val = run_script_and_get(script, "props_list");
-		auto* vec_ptr = std::get_if<std::vector<dara::Value>>(&props_val.data);
-		REQUIRE(vec_ptr != nullptr);  // 配列が返ってきていることを保証
+		Value props_val = run_script_and_get(script, "props_list");
+		//auto* vec_ptr = std::get_if<std::vector<Value>>(&props_val.data);
+		//auto* vec_ptr = std::get_if<Array>(&props_val.data); //(***)
+		//REQUIRE(vec_ptr != nullptr);  // 配列が返ってきていることを保証
 
-		auto contains = [&](const std::string& target) {
-			for (const auto& v : *vec_ptr) {
-				if (std::get<std::string>(v.data) == target) return true;
+        
+		REQUIRE(std::holds_alternative<Array>(props_val.data));  // 配列が返ってきていることを保証
+        Array& vec_ptr = std::get<Array>(props_val.data);
+
+		//auto contains = [&](const std::string& target) {
+		auto contains = [&](const String& target) {
+			for (const auto& v : vec_ptr) {
+				//if (std::get<std::string>(v.data) == target) return true;
+				if (std::get<String>(v.data) == target) return true;
 			}
 			return false;
 		};
@@ -391,9 +425,9 @@ TEST_CASE("Interpreter: Implicit Object Inheritance and Builtin Methods") {
 	   "d_color").data) == "green");
 
 	        // --- 3. Mixin メソッドと props() のチェック ---
-	        dara::Value props_val = run_script_and_get(script, "props_list");
+	        Value props_val = run_script_and_get(script, "props_list");
 	        auto* vec_ptr =
-	   std::get_if<std::vector<dara::Value>>(&props_val.data); REQUIRE(vec_ptr !=
+	   std::get_if<std::vector<Value>>(&props_val.data); REQUIRE(vec_ptr !=
 	   nullptr);  // 配列が返ってきていることを保証
 
 	        auto contains = [&](const std::string& target) {
@@ -448,9 +482,9 @@ TEST_CASE("Interpreter: Implicit Object Inheritance and Builtin Methods") {
 	              false);
 
 	        // Mixin のメソッドが props() で拾えているかのチェック
-	        dara::Value props_val = run_script_and_get(script, "props_list");
+	        Value props_val = run_script_and_get(script, "props_list");
 	        auto* vec_ptr =
-	   std::get_if<std::vector<dara::Value>>(&props_val.data); REQUIRE(vec_ptr !=
+	   std::get_if<std::vector<Value>>(&props_val.data); REQUIRE(vec_ptr !=
 	   nullptr);
 
 	        auto contains = [&](const std::string& target) {
@@ -489,7 +523,8 @@ TEST_CASE("Interpreter: Implicit Object Inheritance and Builtin Methods") {
         )";
 
 		// type() メソッドが呼ばれ、自身のクラス名 "Cat" が返る
-		CHECK(std::get<std::string>(
+		//CHECK(std::get<std::string>(
+		CHECK(std::get<String>(
 		          run_script_and_get(script, "type_str").data) == "Cat");
 	}
 
@@ -506,8 +541,9 @@ TEST_CASE("Interpreter: Implicit Object Inheritance and Builtin Methods") {
             let props_list = cat.props();
         )";
 
-		dara::Value props_val = run_script_and_get(script, "props_list");
-		auto* vec_ptr = std::get_if<std::vector<dara::Value>>(&props_val.data);
+		Value props_val = run_script_and_get(script, "props_list");
+		//auto* vec_ptr = std::get_if<std::vector<Value>>(&props_val.data);
+		auto* vec_ptr = std::get_if<Array>(&props_val.data);
 
 		REQUIRE(vec_ptr != nullptr);
 		// フィールド(name, age) + 自身のメソッド(meow) + Objectのメソッド(id,
@@ -515,9 +551,11 @@ TEST_CASE("Interpreter: Implicit Object Inheritance and Builtin Methods") {
 		REQUIRE(vec_ptr->size() >= 6);
 
 		// 中身に期待する名前が含まれているかチェックするヘルパーラムダ
-		auto contains = [&](const std::string& target) {
+		//auto contains = [&](const std::string& target) {
+		auto contains = [&](const String& target) {
 			for (const auto& v : *vec_ptr) {
-				if (std::get<std::string>(v.data) == target) return true;
+				//if (std::get<std::string>(v.data) == target) return true;
+				if (std::get<String>(v.data) == target) return true;
 			}
 			return false;
 		};
@@ -588,7 +626,7 @@ TEST_CASE("Interpreter: While Statement") {
 	/*
 	// 複数の文を実行し、指定した変数の最終的な値を返すヘルパー関数
 	auto run_script_and_get = [](const char* input, const std::string& var_name)
-	-> dara::Value { Source s(input); Parser p(&s); Interpreter interpreter;
+	-> Value { Source s(input); Parser p(&s); Interpreter interpreter;
 
 	    // 文字列の終端に到達するまで文をパース＆実行し続ける
 	    while (!s.isEnd()) {
@@ -607,11 +645,11 @@ TEST_CASE("Interpreter: While Statement") {
 	};
 	*/
 	auto run_script_and_get = [](const char* input,
-	                             const std::string& var_name) -> dara::Value {
+	                             const std::string& var_name) -> Value {
 		Source s(input);
 		dara::frontend::Parser p(&s);
 		dara::backend::Interpreter interpreter;
-		dara::Program program;
+		Program program;
 
 		// 1. すべてパースする (main.cpp と完全同等)
 		while (!s.isEnd()) {
@@ -743,7 +781,7 @@ TEST_CASE("Interpreter: Logical Operators (and / or)") {
 	*/
 
 	auto try_eval = [](const char* input)
-	    -> dara::Value {  //  変更: int ではなく dara::Value を返す
+	    -> Value {  //  変更: int ではなく Value を返す
 		Source s(input);
 		Parser p1(&s);
 		auto ast = p1.expr();
@@ -757,17 +795,17 @@ TEST_CASE("Interpreter: Logical Operators (and / or)") {
 		dara::backend::Interpreter
 		    interpreter;  //  変更: あなたが実装した本物のインタプリタを使う！
 
-		// visit_expr は Result<dara::Value> (std::expected)
+		// visit_expr は Result<Value> (std::expected)
 		// を返すはずなので受け取る
 		auto res = interpreter.visit_expr(ast.value().get());
 		// auto res = interpreter.visit_stmt(ast.value().get());
 
 		if (!res) {
 			// ゼロ割り等の実行時エラーが起きた場合もテストを落とす
-			throw std::runtime_error("Runtime error in eval");
+			throw std::runtime_error("Runtime error in eval"+res.error().message);
 		}
 
-		return res.value();  // 変更: 成功した dara::Value の中身をそのまま返す
+		return res.value();  // 変更: 成功した Value の中身をそのまま返す
 	};
 
 	SUBCASE("Basic Truth Tables (Booleans)") {
@@ -862,7 +900,7 @@ TEST_CASE("Assignment Statement (AssignStmt) Tests") {
 	}
 
 	SUBCASE(
-	    "3. 異常系(実行時): 未宣言の変数への代入は InterpreterError になる") {
+	    "3. 異常系(実行時): 未宣言の変数への代入は dara::error::InterpreterError になる") {
 		// [実行] 宣言していない変数 b に代入を試みる
 		Source s("b = 30;");
 		Parser p(&s);
@@ -903,9 +941,11 @@ TEST_CASE("Interpreter: Environment stores strings with spaces") {
 		REQUIRE(eval_res.has_value());
 
 		// 3. 取り出した Value の中身が完全に一致するか検証
-		dara::Value val = eval_res.value();
-		REQUIRE(std::holds_alternative<std::string>(val.data));
-		CHECK(std::get<std::string>(val.data) == "hello dara");
+		Value val = eval_res.value();
+		//REQUIRE(std::holds_alternative<std::string>(val.data));
+		REQUIRE(std::holds_alternative<String>(val.data));
+		//CHECK(std::get<std::string>(val.data) == "hello dara");
+		CHECK(std::get<String>(val.data) == "hello dara");
 	}
 }
 
@@ -923,22 +963,22 @@ TEST_CASE("Interpreter: Variables and Print Statement") {
 		// print b;
 
 		// ASTの構築
-		dara::Decl decl1 = make_var_decl("a", make_int(10));
+		Decl decl1 = make_var_decl("a", make_int(10));
 
 		/*
 		Expr a_times_2 = make_infix(InfixOperator::Mul,
 		                            Expr{IdentifierExpr{"a"}, 1, 1},
 		                            make_int(2));
 		*/
-		dara::Expr a_times_2 =
-		    make_infix(InfixOperator::Mul, dara::Expr{dara::VarExpr{"a"}, 1, 1},
+		Expr a_times_2 =
+		    make_infix(InfixOperator::Mul, Expr{VarExpr{"a"}, 1, 1},
 		               make_int(2));
 
-		dara::Decl decl2 = make_var_decl("b", std::move(a_times_2));
+		Decl decl2 = make_var_decl("b", std::move(a_times_2));
 
 		// Decl print_decl = make_print_decl(Expr{IdentifierExpr{"b"}, 1, 1});
-		dara::Decl print_decl =
-		    make_print_decl(dara::Expr{dara::VarExpr{"b"}, 1, 1});
+		Decl print_decl =
+		    make_print_decl(Expr{VarExpr{"b"}, 1, 1});
 
 		// インタプリタに順次実行させる
 		auto res1 = interpreter.visit_decl(&decl1);
@@ -1002,7 +1042,7 @@ TEST_CASE("Interpreter: Arithmetic Operations") {
 
 	SUBCASE("Infix: Addition (Integer)") {
 		// 10 + 20
-		dara::Expr expr =
+		Expr expr =
 		    make_infix(InfixOperator::Add, make_int(10), make_int(20));
 		auto result = interpreter.visit_expr(&expr);
 
@@ -1013,14 +1053,14 @@ TEST_CASE("Interpreter: Arithmetic Operations") {
 
 	SUBCASE("Infix: Subtraction and Multiplication") {
 		// 5 * 4
-		dara::Expr expr_mul =
+		Expr expr_mul =
 		    make_infix(InfixOperator::Mul, make_int(5), make_int(4));
 		auto res_mul = interpreter.visit_expr(&expr_mul);
 		REQUIRE(res_mul.has_value());
 		CHECK(std::get<int>(res_mul.value().data) == 20);
 
 		// 10 - 3
-		dara::Expr expr_sub =
+		Expr expr_sub =
 		    make_infix(InfixOperator::Sub, make_int(10), make_int(3));
 		auto res_sub = interpreter.visit_expr(&expr_sub);
 		REQUIRE(res_sub.has_value());
@@ -1029,7 +1069,7 @@ TEST_CASE("Interpreter: Arithmetic Operations") {
 
 	SUBCASE("Infix: Division by Zero Error") {
 		// 10 / 0
-		dara::Expr expr =
+		Expr expr =
 		    make_infix(InfixOperator::Div, make_int(10), make_int(0));
 		auto result = interpreter.visit_expr(&expr);
 
@@ -1040,17 +1080,18 @@ TEST_CASE("Interpreter: Arithmetic Operations") {
 
 	SUBCASE("Infix: String Concatenation") {
 		// "Hello" + "World"
-		dara::Expr expr = make_infix(InfixOperator::Add, make_str("Hello"),
+		Expr expr = make_infix(InfixOperator::Add, make_str("Hello"),
 		                            make_str("World"));
 		auto result = interpreter.visit_expr(&expr);
 
 		REQUIRE(result.has_value());
-		CHECK(std::get<std::string>(result.value().data) == "HelloWorld");
+		//CHECK(std::get<std::string>(result.value().data) == "HelloWorld");
+		CHECK(std::get<String>(result.value().data) == "HelloWorld");
 	}
 
 	SUBCASE("Prefix: Negation") {
 		// -15
-		dara::Expr expr = make_prefix(PrefixOperator::Neg, make_int(15));
+		Expr expr = make_prefix(PrefixOperator::Neg, make_int(15));
 		auto result = interpreter.visit_expr(&expr);
 
 		REQUIRE(result.has_value());
@@ -1059,7 +1100,7 @@ TEST_CASE("Interpreter: Arithmetic Operations") {
 
 	SUBCASE("Postfix: Factorial") {
 		// 5!
-		dara::Expr expr = make_postfix(PostfixOperator::Fac, make_int(5));
+		Expr expr = make_postfix(PostfixOperator::Fac, make_int(5));
 		auto result = interpreter.visit_expr(&expr);
 
 		if (!result.has_value()) {
@@ -1079,7 +1120,7 @@ TEST_CASE("Interpreter: Arithmetic Operations") {
 
 	SUBCASE("Postfix: Factorial Negative Number Error") {
 		// -1!
-		dara::Expr expr = make_postfix(PostfixOperator::Fac, make_int(-1));
+		Expr expr = make_postfix(PostfixOperator::Fac, make_int(-1));
 		auto result = interpreter.visit_expr(&expr);
 
 		REQUIRE_FALSE(result.has_value());
@@ -1116,7 +1157,7 @@ TEST_CASE("Interpreter: ") {
 	    };
 	*/
 	auto try_eval = [](const char* input)
-	    -> dara::Value {  //  変更: int ではなく dara::Value を返す
+	    -> Value {  //  変更: int ではなく Value を返す
 		Source s(input);
 		Parser p1(&s);
 		auto ast = p1.expr();
@@ -1130,7 +1171,7 @@ TEST_CASE("Interpreter: ") {
 		dara::backend::Interpreter
 		    interpreter;  //  変更: あなたが実装した本物のインタプリタを使う！
 
-		// visit_expr は Result<dara::Value> (std::expected)
+		// visit_expr は Result<Value> (std::expected)
 		// を返すはずなので受け取る
 		auto res = interpreter.visit_expr(ast.value().get());
 		// auto res = interpreter.visit_stmt(ast.value().get());
@@ -1140,7 +1181,7 @@ TEST_CASE("Interpreter: ") {
 			throw std::runtime_error("Runtime error in eval");
 		}
 
-		return res.value();  // 変更: 成功した dara::Value の中身をそのまま返す
+		return res.value();  // 変更: 成功した Value の中身をそのまま返す
 	};
 
 	const char* case_title;

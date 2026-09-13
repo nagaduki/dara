@@ -7,7 +7,9 @@
 #include <optional>
 #include <sstream>
 
-class SyntaxError {
+namespace dara::error {
+
+class SynataxError {
    public:
 	std::string message;
 	//size_t position = 0;
@@ -28,6 +30,7 @@ class SyntaxError {
 		return oss.str();
 	}
 };
+
 
 class InterpreterError {
    public:
@@ -53,33 +56,7 @@ class InterpreterError {
 
 };
 
-
-class _InterpreterError {
-   public:
-	std::string message;
-	size_t position = 0;
-	int line;
-	int col;
-	//std::optional<char> actual; 
-	std::string to_string() const {
-        return std::format("[Line {}, col {}] Interpreter Error: []", line, col, message);
-        //return std::format(" Interpreter Error: []", message);
-
-        /*
-		std::ostringstream oss;
-		oss << "[line " << line << ", col " << col << "] " << message;
-
-		// 値が存在しない（std::nullopt）なら EOF 扱い
-		if (!actual.has_value()) {
-			oss << " (at EOF)";
-		} else {
-			oss << ": '" << *actual << "'";
-		}
-		return oss.str();
-        */
-	}
-
-};
+}
 
 /* moden c++ error */
 /*
@@ -98,17 +75,17 @@ using Rule = std::function<T (Source *)>;
 // 1. モダンな列挙型（enum class）によるエラー定義
 // =========================================================================
 /*
-enum class _SyntaxError {
+enum class _dara::error::SynataxError {
     EndOfInput,      // 入力が途中で途切れた ("too short")
     ConditionNotMet, // 条件を満たさなかった ("not satisfy")
     Unknown
 };
 
 // エラー内容を文字列に変換するヘルパー関数
-std::string to_string(_SyntaxError err) {
+std::string to_string(_dara::error::SynataxError err) {
     switch (err) {
-        case SyntaxError::EndOfInput:      return "End of input reached (too short)";
-        case SyntaxError::ConditionNotMet: return "Character did not satisfy condition";
+        case dara::error::SynataxError::EndOfInput:      return "End of input reached (too short)";
+        case dara::error::SynataxError::ConditionNotMet: return "Character did not satisfy condition";
         default:                          return "Unknown error";
     }
 }
@@ -118,15 +95,15 @@ std::string to_string(_SyntaxError err) {
 // =========================================================================
 class _ParseException : public std::runtime_error {
 public:
-    _SyntaxError error_code; // どのエラーが起きたかを enum で保持する
+    _dara::error::SynataxError error_code; // どのエラーが起きたかを enum で保持する
 
     // コンストラクタ
-    _ParseException(_SyntaxError code) 
+    _ParseException(_dara::error::SynataxError code) 
         : std::runtime_error(to_string(code)), error_code(code) {}
 };
 
 // 簡略化用の例外送出関数
-std::runtime_error ex(_SyntaxError err) {
+std::runtime_error ex(_dara::error::SynataxError err) {
     return _ParseException(err);
 }
 */
@@ -155,8 +132,8 @@ Rule<char> satisfy(const std::function<bool (char)> &f) {
     // 【重要】[=] で変数 f をキャプチャして内部にコピーを持たせる
     Rule<char> np = [=](Source *s) {
         char ch = **s;
-        if (ch == '\0') throw ex(_SyntaxError::EndOfInput);    // 文字列ではなく enum を渡す
-        if (!f(ch))     throw ex(_SyntaxError::ConditionNotMet); // 文字列ではなく enum を渡す
+        if (ch == '\0') throw ex(_dara::error::SynataxError::EndOfInput);    // 文字列ではなく enum を渡す
+        if (!f(ch))     throw ex(_dara::error::SynataxError::ConditionNotMet); // 文字列ではなく enum を渡す
         (*s)++;
         return ch;
     };

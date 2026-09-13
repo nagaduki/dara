@@ -7,9 +7,9 @@
 
 namespace dara::backend {
 struct ReturnException : public std::exception {
-	dara::Value value;
+	dara::backend::Value value;
 
-	explicit ReturnException(dara::Value value) : value(std::move(value)) {}
+	explicit ReturnException(dara::backend::Value value) : value(std::move(value)) {}
 };
 
 class BreakException : public std::exception {};

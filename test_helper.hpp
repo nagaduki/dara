@@ -10,51 +10,56 @@
 #include "builtin.hpp"
 // #include "declaration.hpp"
 
-inline dara::Expr make_int(int v) { return dara::Expr{dara::IntExpr{v}, 1, 1}; }
+using namespace dara::ast;
+using namespace dara::lexer;
 
-inline dara::Expr make_str(const std::string& s) {
-	return dara::Expr{dara::StringExpr{s}, 1, 1};
+inline Expr make_int(int v) { return Expr{IntExpr{v}, 1, 1}; }
+
+inline Expr make_str(const std::string& s) {
+	return Expr{StringExpr{s}, 1, 1};
 }
 
-inline dara::Expr make_infix(InfixOperator op, dara::Expr lhs, dara::Expr rhs) {
-	return dara::Expr{
-	    dara::InfixOpExpr{op, std::make_unique<dara::Expr>(std::move(lhs)),
-	                     std::make_unique<dara::Expr>(std::move(rhs))},
+inline Expr make_infix(InfixOperator op, Expr lhs, Expr rhs) {
+	return Expr{
+	    InfixOpExpr{op, std::make_unique<Expr>(std::move(lhs)),
+	                     std::make_unique<Expr>(std::move(rhs))},
 	    1, 1};
 }
 
-inline dara::Expr make_prefix(PrefixOperator op, dara::Expr rhs) {
-	return dara::Expr{
-	    dara::PrefixOpExpr{op, std::make_unique<dara::Expr>(std::move(rhs))}, 1,
+inline Expr make_prefix(PrefixOperator op, Expr rhs) {
+	return Expr{
+	    PrefixOpExpr{op, std::make_unique<Expr>(std::move(rhs))}, 1,
 	    1};
 }
 
-inline dara::Expr make_postfix(PostfixOperator op, dara::Expr lhs) {
-	return dara::Expr{
-	    dara::PostfixOpExpr{op, std::make_unique<dara::Expr>(std::move(lhs))}, 1,
+inline Expr make_postfix(PostfixOperator op, Expr lhs) {
+	return Expr{
+	    PostfixOpExpr{op, std::make_unique<Expr>(std::move(lhs))}, 1,
 	    1};
 }
 
 // 今回追加した Stmt/Decl 用のヘルパー
-inline dara::Decl make_var_decl(const std::string& name, dara::Expr init) {
-	return dara::Decl{
-	    dara::VarDecl{name, std::make_unique<dara::Expr>(std::move(init))}, 1, 1};
+inline Decl make_var_decl(const std::string& name, Expr init) {
+	return Decl{
+	    VarDecl{name, std::make_unique<Expr>(std::move(init))}, 1, 1};
 }
 
-inline dara::Decl make_print_decl(dara::Expr expr) {
-	return dara::Decl{
-	    dara::TopLevelStmt{std::make_unique<dara::Stmt>(dara::Stmt{
-	        dara::PrintStmt{std::make_unique<dara::Expr>(std::move(expr))}, 1,
+inline Decl make_print_decl(Expr expr) {
+	return Decl{
+	    TopLevelStmt{std::make_unique<Stmt>(Stmt{
+	        PrintStmt{std::make_unique<Expr>(std::move(expr))}, 1,
 	        1})},
 	    1, 1};
 }
 
 // test_helper.hpp (新規作成)
+/*
 namespace dara::test {
 dara::backend::Interpreter run_code(const std::string& code) {
 	Source source(code.c_str());
 	dara::frontend::Parser parser(&source);
-	dara::backend::Interpreter interpreter;
+	//dara::backend::Interpreter interpreter = std::make_unique<Interpreter>();
+	auto interpreter = std::make_unique<dara::backend::Interpreter>();
 
 	auto program_res = parser.program();
 	if (!program_res) {
@@ -68,3 +73,4 @@ dara::backend::Interpreter run_code(const std::string& code) {
 	return interpreter;
 }
 }  // namespace dara::test
+*/

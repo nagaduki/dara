@@ -5,6 +5,9 @@
 #include "ast.hpp"
 #include "printer.hpp"
 
+using namespace dara::lexer;
+using namespace dara::ast;
+
 template <class... Ts>
 struct overloaded : Ts... {
 	using Ts::operator()...;
@@ -13,65 +16,65 @@ struct overloaded : Ts... {
 template <class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
-std::string StringPrinter::print(const dara::Expr* expr) {
+std::string StringPrinter::print(const Expr* expr) {
 	// this->visit_expr(expr);
 
 	return this->visit_expr(expr);
 }
 
-std::string StringPrinter::print(const dara::Decl* decl) {
+std::string StringPrinter::print(const Decl* decl) {
 	// this->visit_expr(expr);
 	return this->visit_decl(decl);
 }
 
-std::string StringPrinter::visit_expr(const dara::Expr* expr) {
+std::string StringPrinter::visit_expr(const Expr* expr) {
 	return std::visit(
-	    overloaded{[](const dara::IntExpr& expr) {
+	    overloaded{[](const IntExpr& expr) {
 		               return std::format("{}", expr.value);
 	               },
-	               [](const dara::DoubleExpr& expr) {
+	               [](const DoubleExpr& expr) {
 		               return std::format("{}", expr.value);
 	               },
 
-	               [](const dara::StringExpr& expr) {
+	               [](const StringExpr& expr) {
 		               return std::format("{}", expr.value);
 	               },
-	               [](const dara::CharExpr& expr) {
+	               [](const CharExpr& expr) {
 		               return std::format("'{}'", expr.value);
 	               },
-	               [](const dara::VarExpr& expr) {  //(*)
+	               [](const VarExpr& expr) {  //(*)
 		               // return this->visit_stmt(vd.initializer.get());
 		               return std::format("\"{}\"", expr.name);  //(*)
 	               },
-	               [](const dara::BoolExpr& expr) {  //(*)
+	               [](const BoolExpr& expr) {  //(*)
 		               // return this->visit_stmt(vd.initializer.get());
 		               return std::format("\"{}\"", expr.value);  //(*)
 	               },
-	               [this](const dara::CallExpr& expr) -> std::string {
+	               [this](const CallExpr& expr) -> std::string {
 		               // dummy
 		               return "CallExpr";
 	               },
-	               [this](const dara::ArrayExpr& expr) -> std::string {
+	               [this](const ArrayExpr& expr) -> std::string {
 		               // dummy
 		               return "ArrayExpr";
 	               },
-	               [this](const dara::IndexExpr& expr) -> std::string {
+	               [this](const IndexExpr& expr) -> std::string {
 		               // dummy
 		               return "IndexExpr";
 	               },
-	               [this](const dara::GetExpr& expr) -> std::string {
+	               [this](const GetExpr& expr) -> std::string {
 		               // dummy
 		               return "GetExpr";
 	               },
-	               [this](const dara::ThisExpr& expr) -> std::string {
+	               [this](const ThisExpr& expr) -> std::string {
 		               // dummy
 		               return "ThisExpr";
 	               },
 
-	               [this](const dara::FunctionExpr& e) -> std::string {
+	               [this](const FunctionExpr& e) -> std::string {
 		               return "FunctionExpr";
 	               },
-	               [this](const dara::InfixOpExpr& expr) {
+	               [this](const InfixOpExpr& expr) {
 		               std::string op_str;
 		               switch (expr.op) {
 			               case InfixOperator::Add:
@@ -115,7 +118,7 @@ std::string StringPrinter::visit_expr(const dara::Expr* expr) {
 		                                  visit_expr(expr.lhs.get()),
 		                                  visit_expr(expr.rhs.get()));
 	               },
-	               [this](const dara::LogicalOpExpr& expr) {
+	               [this](const LogicalOpExpr& expr) {
 		               std::string op_str;
 		               switch (expr.op) {
 			               case LogicalOperator::And:
@@ -129,7 +132,7 @@ std::string StringPrinter::visit_expr(const dara::Expr* expr) {
 		                                  visit_expr(expr.lhs.get()),
 		                                  visit_expr(expr.rhs.get()));
 	               },
-	               [this](const dara::PrefixOpExpr& expr) {
+	               [this](const PrefixOpExpr& expr) {
 		               std::string op_str;
 		               switch (expr.op) {
 			               case PrefixOperator::Pos:
@@ -153,7 +156,7 @@ std::string StringPrinter::visit_expr(const dara::Expr* expr) {
 		               return std::format("({} {})", op_str,
 		                                  visit_expr(expr.rhs.get()));
 	               },
-	               [this](const dara::PostfixOpExpr& expr) {
+	               [this](const PostfixOpExpr& expr) {
 		               std::string op_str;
 		               switch (expr.op) {
 				               /*
@@ -174,12 +177,12 @@ std::string StringPrinter::visit_expr(const dara::Expr* expr) {
 	    expr->value);
 };
 
-std::string StringPrinter::visit_decl(const dara::Decl* decl) {
+std::string StringPrinter::visit_decl(const Decl* decl) {
 	return std::visit(
-	    overloaded{[this](const dara::TopLevelStmt& tls) {
+	    overloaded{[this](const TopLevelStmt& tls) {
 		               return this->visit_stmt(tls.stmt.get());
 	               },
-	               [this](const dara::VarDecl& vd) {
+	               [this](const VarDecl& vd) {
 		               return std::format(
 		                   "(decl {})", this->visit_expr(vd.initializer.get()));
 		               //: return this->visit_stmt(vd.initializer.get());
@@ -191,20 +194,20 @@ std::string StringPrinter::visit_decl(const dara::Decl* decl) {
 	    decl->value);
 }
 
-std::string StringPrinter::visit_stmt(const dara::Stmt* stmt) {
+std::string StringPrinter::visit_stmt(const Stmt* stmt) {
 	return std::visit(
-	    overloaded{[this](const dara::PrintStmt& ps) {
+	    overloaded{[this](const PrintStmt& ps) {
 		               return std::format("(print {})",
 		                                  this->visit_expr(ps.expr.get()));
 	               },
-	               [this](const dara::ExprStmt& ps) {
+	               [this](const ExprStmt& ps) {
 		               return std::format("(expr {})",
 		                                  this->visit_expr(ps.expr.get()));
 	               },
-	               [](const dara::IncStmt& s) {
+	               [](const IncStmt& s) {
 		               return std::format("(++ {})", s.name);
 	               },
-	               [](const dara::DecStmt& s) {
+	               [](const DecStmt& s) {
 		               return std::format("(-- {})", s.name);
 	               },
 	               [](const auto&) -> std::string {

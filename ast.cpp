@@ -3,6 +3,10 @@
 
 #include "printer.hpp"
 
+namespace dara::ast{
+
+using namespace dara::lexer;
+
 template <class... Ts>
 struct overloaded : Ts... {
 	using Ts::operator()...;
@@ -11,11 +15,12 @@ struct overloaded : Ts... {
 template <class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
-std::string dara::Expr::to_string() const {
+std::string dara::ast::Expr::to_string() const {
 //std::string dara::Expr::to_string() {
 	StringPrinter printer;
 	return printer.print(this);
 }
+
 
 /*
 std::string Value::to_string() const {
@@ -31,3 +36,5 @@ std::string Value::to_string() const {
 	                  data);
 }
 */
+
+}

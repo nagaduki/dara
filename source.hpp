@@ -21,7 +21,7 @@ class Source {
 	// Source(const char* s) : line(1), col(1), data(s), position(0) {}
 	Source(const char* s) : data(s), position(0) {}
 
-	std::expected<char, SyntaxError> peek() {
+	std::expected<char, dara::error::SynataxError> peek() {
 		if (position >= data.size())
 			return std::unexpected(make_error("too short"));
 		char c = data[position];  //(*)
@@ -54,7 +54,7 @@ class Source {
 		//++(this->position);
 	}
 
-	SyntaxError make_error(const std::string& msg) const {
+	dara::error::SynataxError make_error(const std::string& msg) const {
 		// 1. 最初から「値なし（EOF）」として初期化する
 		std::optional<char> actual_char = std::nullopt;
 
@@ -65,10 +65,10 @@ class Source {
 
 		auto [l, c] = this->get_line_col();
 
-		// 3. そのまま SyntaxError に渡す
-		// return SyntaxError{msg, line, col, actual_char};
-		// return SyntaxError{msg, this->position, l, c, actual_char};
-		return SyntaxError{msg, l, c, actual_char};
+		// 3. そのまま dara::error::SynataxError に渡す
+		// return dara::error::SynataxError{msg, line, col, actual_char};
+		// return dara::error::SynataxError{msg, this->position, l, c, actual_char};
+		return dara::error::SynataxError{msg, l, c, actual_char};
 	}
 
 	bool isEnd() const {

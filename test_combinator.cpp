@@ -22,6 +22,9 @@
 #include "lexer.hpp"  // letter, digit, char1 などの基礎パーサを使うために必要
 
 
+using namespace dara::combinator;
+using namespace dara::lexer;
+
 TEST_CASE("Combinator: 選択 (||) コンビネータのテスト") {
 	const char* case_title;
 	const char* file_slug;

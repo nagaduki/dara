@@ -24,7 +24,7 @@ overloaded(Ts...) -> overloaded<Ts...>;
 
 namespace dara::backend {
 
-std::string to_string(const dara::Value& val) {
+std::string to_string(const Value& val) {
 	return std::visit(
 	    overloaded{[](int v) { return std::to_string(v); },
 	               [](double v) {
@@ -33,7 +33,8 @@ std::string to_string(const dara::Value& val) {
 		               return oss.str();
 		               // return std::to_string(v);
 	               },
-	               [](const std::string& v) { return v; },
+	               //[](const std::string& v) { return v; },
+	               [](const String& v) -> std::string { return std::string(v.c_str()); },
 	               [](char v) { return std::string(1, v); },
 	               [](bool v) {
 		               if (v) {
@@ -43,10 +44,11 @@ std::string to_string(const dara::Value& val) {
 		               }
 	               },
 	               [](std::monostate) { return std::string("nil"); },
-	               [](const std::vector<dara::Value>& arr) -> std::string {
+                    /*
+	               [](const std::vector<Value>& arr) -> std::string {
 		               std::string s = "[";
 		               for (size_t i = 0; i < arr.size(); ++i) {
-			               s += backend::to_string(arr[i]);  //(*)
+			               s += dara::backend::to_string(arr[i]);  //(*)
 			               if (i != arr.size() - 1) {
 				               s += ", ";
 			               }
@@ -54,13 +56,27 @@ std::string to_string(const dara::Value& val) {
 		               s += "]";
 		               return s;
 	               },
+                    */
+	               [](const Array& arr) -> std::string {
+		               std::string res = "[";
+		               for (size_t i = 0; i < arr.size(); ++i) {
+			               res += dara::backend::to_string(arr[i]);  //(*)
+			               if (i != arr.size() - 1) {
+				               res += ", ";
+			               }
+		               }
+		               res += "]";
+		               return res;
+	               },
+
 	               [](std::shared_ptr<dara::backend::Callable> c) {
 		               return c->to_string();
 	               },
-	               [](const dara::Range& r) {
+	               [](const dara::backend::Range& r) {
 		               return std::to_string(r.start) + ".." +
 		                      std::to_string(r.end);
 	               },
+
 	               [](const auto&) { return std::string("unknown"); }},
 	    val.data);
 }
