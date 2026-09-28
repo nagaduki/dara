@@ -22,7 +22,7 @@ using namespace dara::lexer;
 /*
 template <class... Ts>
 struct overloaded : Ts... {
-	using Ts::operator()...;
+    using Ts::operator()...;
 };
 
 template <class... Ts>
@@ -290,12 +290,13 @@ int Parser::postfix_binding_power(PostfixOperator op) {
 	}
 }
 
-std::expected<InfixOperator, dara::error::SynataxError> Parser::infix_op()
+std::expected<InfixOperator, dara::error::SyntaxError> Parser::infix_op()
 // Rule<InfixOperator> Parser::infix_op()
 // auto Parser::infix_op()
-//-> std::expected<InfixOperator, dara::error::SynataxError>
+//-> std::expected<InfixOperator, dara::error::SyntaxError>
 {
-	// std::expected<InfixOperator, dara::error::SynataxError> Parser::infix_op() {
+	// std::expected<InfixOperator, dara::error::SyntaxError>
+	// Parser::infix_op() {
 	/*
 	Source backup = *(this->s);
 	if (sym("++")(this->s) || sym("--")(this->s)) {
@@ -350,7 +351,7 @@ std::expected<InfixOperator, dara::error::SynataxError> Parser::infix_op()
 	return std::unexpected(this->s->make_error("unknown infix operator"));
 }
 
-std::expected<PrefixOperator, dara::error::SynataxError> Parser::prefix_op() {
+std::expected<PrefixOperator, dara::error::SyntaxError> Parser::prefix_op() {
 	Source backup = *(this->s);
 
 	// statement
@@ -394,7 +395,7 @@ std::expected<PrefixOperator, dara::error::SynataxError> Parser::prefix_op() {
 }
 
 /*
-std::expected<PostfixOperator, dara::error::SynataxError> Parser::postfix_op() {
+std::expected<PostfixOperator, dara::error::SyntaxError> Parser::postfix_op() {
     Source backup = *(this->s);
     // auto res = (string1("++") || string1("--") || string1("!"))(this->s);
     // statement
@@ -416,7 +417,7 @@ std::expected<PostfixOperator, dara::error::SynataxError> Parser::postfix_op() {
     return std::unexpected(this->s->make_error("unknown postfix operator"));
 }
 */
-std::expected<PostfixOperator, dara::error::SynataxError> Parser::postfix_op() {
+std::expected<PostfixOperator, dara::error::SyntaxError> Parser::postfix_op() {
 	Source backup = *(this->s);
 	// auto res = (string1("++") || string1("--") || string1("!"))(this->s);
 	// statement
@@ -451,7 +452,7 @@ std::expected<PostfixOperator, dara::error::SynataxError> Parser::postfix_op() {
 	return std::unexpected(this->s->make_error("unknown postfix operator"));
 }
 
-std::expected<MixfixOperator, dara::error::SynataxError> Parser::mixfix_op() {
+std::expected<MixfixOperator, dara::error::SyntaxError> Parser::mixfix_op() {
 	Source backup = *(this->s);
 
 	// if (sym("(")(this->s)) {
@@ -472,60 +473,59 @@ std::expected<MixfixOperator, dara::error::SynataxError> Parser::mixfix_op() {
 	return std::unexpected(this->s->make_error("unknown mixfix operator"));
 }
 
+/**
 std::unique_ptr<Expr> Parser::make_atom(int value) {
-	// int line = this->s->line;
-	// int col = this->s->col;
+    //size_t start = s->get_current();
+    // int line = this->s->line;
+    // int col = this->s->col;
 
-	return std::make_unique<Expr>(Expr{
-	    .value = IntExpr{value},
-	    //.line = line,
-	    //.col = col,
-	});
+    return std::make_unique<Expr>(Expr{
+        .value = IntExpr{value},
+        //.line = line,
+        //.col = col,
+    });
 }
 
 std::unique_ptr<Expr> Parser::make_atom(double value) {
-
-	return std::make_unique<Expr>(Expr{
-	    .value = DoubleExpr{value},
-	});
+    return std::make_unique<Expr>(Expr{
+        .value = DoubleExpr{value},
+    });
 }
-
 
 std::unique_ptr<Expr> Parser::make_atom(char value) {
-	return std::make_unique<Expr>(Expr{CharExpr{value}});
+    return std::make_unique<Expr>(Expr{CharExpr{value}});
 }
 
-/* make_atom for std::string */
+// make_atom for std::string /
 std::unique_ptr<Expr> Parser::make_atom(std::string value) {
-	return std::make_unique<Expr>(Expr{StringExpr{value}});
+    return std::make_unique<Expr>(Expr{StringExpr{value}});
 }
 
-/* make_atom for bool */
+// make_atom for bool /
 std::unique_ptr<Expr> Parser::make_atom(bool value) {
-	return std::make_unique<Expr>(Expr{
-	    BoolExpr{value},
-	    // line, col の情報も必要であればここに付与
-	});
+    return std::make_unique<Expr>(Expr{
+        BoolExpr{value},
+        // line, col の情報も必要であればここに付与
+    });
 }
 
 std::unique_ptr<Expr> Parser::make_cons(PrefixOperator op,
-                                             std::unique_ptr<Expr> rhs) {
-	return std::make_unique<Expr>(
-	    Expr{PrefixOpExpr{op, std::move(rhs)}});
+                                        std::unique_ptr<Expr> rhs) {
+    return std::make_unique<Expr>(Expr{PrefixOpExpr{op, std::move(rhs)}});
 }
 
 std::unique_ptr<Expr> Parser::make_cons(InfixOperator op,
-                                             std::unique_ptr<Expr> lhs,
-                                             std::unique_ptr<Expr> rhs) {
-	return std::make_unique<Expr>(
-	    Expr{InfixOpExpr{op, std::move(lhs), std::move(rhs)}});
+                                        std::unique_ptr<Expr> lhs,
+                                        std::unique_ptr<Expr> rhs) {
+    return std::make_unique<Expr>(
+        Expr{InfixOpExpr{op, std::move(lhs), std::move(rhs)}});
 }
 
 std::unique_ptr<Expr> Parser::make_cons(PostfixOperator op,
-                                             std::unique_ptr<Expr> lhs) {
-	return std::make_unique<Expr>(
-	    Expr{PostfixOpExpr{op, std::move(lhs)}});
+                                        std::unique_ptr<Expr> lhs) {
+    return std::make_unique<Expr>(Expr{PostfixOpExpr{op, std::move(lhs)}});
 }
+**/
 
 /* for AssignExpr */
 /*
@@ -538,8 +538,8 @@ std::unique_ptr<dara::Expr> make_cons(std::string name,
 
 /* for assign expression */
 /*
-std::expected<std::unique_ptr<dara::Expr>, dara::error::SynataxError> apply_infix(
-    InfixOperator op, std::unique_ptr<dara::Expr> lhs,
+std::expected<std::unique_ptr<dara::Expr>, dara::error::SyntaxError>
+apply_infix( InfixOperator op, std::unique_ptr<dara::Expr> lhs,
     std::unique_ptr<dara::Expr> rhs, Source* s) {
     if (op == InfixOperator::Assign) {
         if (std::holds_alternative<dara::VarExpr>(lhs->value)) {
@@ -569,15 +569,17 @@ const InfixTrait* trait_ptr = get_infix_trait(infix_op);
  */
 
 /* in parser_expr.cpp */
-std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::call_expr(
-    std::unique_ptr<Expr> callee) {
+std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError>
+Parser::call_expr(std::unique_ptr<Expr> callee) {
 	std::vector<std::unique_ptr<Expr>> arguments;
+	size_t start = callee->span.start;
 
 	// if (sym(")")(this->s)) {
 	if (RParen(this->s)) {
-		//
+		size_t end = s->get_current();
 		auto call_res = std::make_unique<Expr>();
 		call_res->value = CallExpr{std::move(callee), std::move(arguments)};
+		call_res->span = Span{start, end};
 		return call_res;
 	}
 
@@ -600,21 +602,27 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::call_exp
 	// if (sym(")")(this->s)) {
 	if (!RParen(this->s)) {
 		//
-		PRINT_LINE();
+		// PRINT_LINE();
 		return std::unexpected(
 		    this->s->make_error("Expected ')' after arguments"));
 	}
 
-	auto call_res = std::make_unique<Expr>();
-	call_res->value = CallExpr{//
-	                           std::move(callee), std::move(arguments)};
+	size_t end = s->get_current();
 
-	return call_res;
+	// auto call_res = std::make_unique<Expr>();
+	// call_res->value = CallExpr{//
+	//                            std::move(callee), std::move(arguments)};
+	// call_res->span = Span{start, end};
+	// return call_res;
+	return std::make_unique<Expr>(
+	    Expr{.value = CallExpr{std::move(callee), std::move(arguments)},
+	         .span = Span{start, end}});
 }
 
 /* in parser_expr.cpp */
-std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::index_expr(
-    std::unique_ptr<Expr> left) {
+std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError>
+Parser::index_expr(std::unique_ptr<Expr> left) {
+	size_t start = left->span.start;
 	auto index_res = this->expr();
 	if (!index_res) {
 		return std::unexpected(index_res.error());
@@ -625,15 +633,25 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::index_ex
 		    this->s->make_error("epected ']' after array index"));
 	}
 
-	auto value_res = std::make_unique<Expr>();
-	value_res->value = IndexExpr{std::move(left), std::move(index_res.value())};
-	return value_res;
+	size_t end = s->get_current();
+
+	// auto value_res = std::make_unique<Expr>();
+	// value_res->value = IndexExpr{std::move(left),
+	// std::move(index_res.value())}; value_res->span = Span{start, end}; return
+	// value_res;
+
+	return std::make_unique<Expr>(
+	    Expr{.value = IndexExpr{std::move(left), std::move(index_res.value())},
+	         .span = Span{start, end}});
+
 	// return std::make_unique(dara::Expr{
 	//     .value = dara::IndexExpr{.array = std::move(left),
 	//                             .index = std::move(index_res.value())}});
 }
 
-std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::prefix_expr() {
+std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError>
+Parser::prefix_expr() {
+	size_t start = s->get_current();
 	// Source backup = *(this->s);
 	// auto op_res = prefix_op(this->s);
 	auto op_res = this->prefix_op();
@@ -642,25 +660,36 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::prefix_e
 	PrefixOperator op = op_res.value();
 	const PrefixTrait* trait_ptr = get_prefix_trait(op);
 	if (!trait_ptr) {
-		return std::unexpected(dara::error::SynataxError{"Unknown prefix operator."});
+		return std::unexpected(
+		    dara::error::SyntaxError{"Unknown prefix operator."});
 	}
 
 	// auto rhs_res = this->expr(trait_ptr->rbp);
 	// if (!rhs_res) return std::unexpected(rhs_res.error());
 	// return make_cons(op, std::move(rhs_res.value()));
 
+	// size_t end = s->get_current();
 	return this->expr(trait_ptr->rbp).transform([&](auto rhs) {
-		auto new_expr = std::make_unique<Expr>();
-		new_expr->value = trait_ptr->make(std::move(rhs));
-		return new_expr;
+		size_t end = s->get_current();
+		// auto new_expr = std::make_unique<Expr>();
+		// new_expr->value = trait_ptr->make(std::move(rhs));
+		// new_expr->span = Span{start, end};
+		// return new_expr;
+		return std::make_unique<Expr>(
+		    Expr{.value = trait_ptr->make(std::move(rhs)),
+		         .span = Span{start, end}});
 	});
 }
 
-std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::mixfix_expr(
-    MixfixOperator op, std::unique_ptr<Expr> lhs) {
+/* mixifix_error in parser_expr */
+std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError>
+Parser::mixfix_expr(MixfixOperator op, std::unique_ptr<Expr> lhs) {
+	// size_t start = lhs->span.start;
 	switch (op) {
 		case MixfixOperator::Call:
 			return this->call_expr(std::move(lhs));
+			// return Expr{.value=this->call_expr(std::move(lhs)), .span =
+			// Span{start, start+1});
 		case MixfixOperator::Index:
 			return this->index_expr(std::move(lhs));
 		case MixfixOperator::Property:
@@ -674,7 +703,8 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::mixfix_e
 }
 //}
 
-std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::paren_expr() {
+std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError>
+Parser::paren_expr() {
 	// TraceGuard trace("parse_paren_expr");
 	//  if (!sym('(')(s)) return std::unexpected(s->make_error("not '('"));
 	if (!LParen(this->s)) {
@@ -682,7 +712,9 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::paren_ex
 	}
 
 	auto inner_res = this->expr(0);
-	if (!inner_res) return std::unexpected(inner_res.error());
+	if (!inner_res) {
+		return std::unexpected(inner_res.error());
+	}
 
 	// if (!sym(')')(s)) return std::unexpected(s->make_error("expected
 	// ')'"));
@@ -693,7 +725,9 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::paren_ex
 	return std::move(inner_res.value());
 }
 
-std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::bracket_expr() {
+std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError>
+Parser::bracket_expr() {
+	size_t start = s->get_current();
 	if (!LBracket(this->s)) {
 		return std::unexpected(this->s->make_error("not '['"));
 	}
@@ -718,36 +752,57 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::bracket_
 			}
 		}
 	}
-	return std::make_unique<Expr>(
-	    Expr{.value = ArrayExpr{std::move(elements)}});
+
+	size_t end = s->get_current();
+	return std::make_unique<Expr>(Expr{.value = ArrayExpr{std::move(elements)},
+	                                   .span = Span{start, end}});
 }
 
-std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::dot_expr(
+/* dot_expr in parser_expr.cpp */
+std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError> Parser::dot_expr(
     std::unique_ptr<Expr> left) {
+	size_t start = left->span.start;
+
 	auto name_res = identifier(this->s);
 	if (!name_res) {
 		return std::unexpected(
 		    this->s->make_error("Expected property name after '.'"));
 	}
 
-	auto value_res = std::make_unique<Expr>();
-	value_res->value = GetExpr{std::move(left), std::move(name_res.value())};
+	size_t end = s->get_current();
 
-	return value_res;
+	// auto value_res = std::make_unique<Expr>();
+	// value_res->value = GetExpr{std::move(left), std::move(name_res.value())};
+	// value_res->span = Span{start, end};
+	// return value_res;
+
+	return std::make_unique<Expr>(
+	    Expr{.value = GetExpr{std::move(left), std::move(name_res.value())},
+	         .span = Span{start, end}});
 }
 
-/* atom_expr */
-std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::atom_expr() {
+/* atom_expr in parser_expr.cpp */
+std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError>
+Parser::atom_expr() {
 	Source backup = *(this->s);
-	int line = this->s->line;
-	int col = this->s->col;
+
+	// int line = this->s->line;
+	// int col = this->s->col;
+
+	size_t start = s->get_current();
+	size_t end;
 
 	if (auto bool_res = boolean_literal(this->s)) {
-		return std::make_unique<Expr>(Expr{
-		    .value = BoolExpr{.value = std::move(bool_res.value())},
-		    .line = line,
-		    .col = col});
+		// return std::make_unique<Expr>(
+		//     Expr{.value = BoolExpr{.value = std::move(bool_res.value())},
+		//          .line = line,
+		//          .col = col});
+		end = s->get_current();
+		return std::make_unique<Expr>(
+		    Expr{.value = BoolExpr{.value = std::move(bool_res.value())},
+		         .span = Span{start, end}});
 	}
+
 	*s = backup;
 
 	if (auto double_res = double_literal(this->s)) {
@@ -755,10 +810,15 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::atom_exp
 		return std::make_unique<dara::Expr>(
 		    dara::Expr{dara::IntExpr{int_res.value()}});
 		*/
-		return std::make_unique<Expr>(Expr{
-		    .value = DoubleExpr{.value = std::move(double_res.value())},
-		    .line = line,
-		    .col = col});
+		// return std::make_unique<Expr>(
+		//     Expr{.value = DoubleExpr{.value = std::move(double_res.value())},
+		//          .line = line,
+		//          .col = col});
+
+		end = s->get_current();
+		return std::make_unique<Expr>(
+		    Expr{.value = DoubleExpr{.value = std::move(double_res.value())},
+		         .span = Span{start, end}});
 	}
 	*s = backup;
 
@@ -767,10 +827,15 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::atom_exp
 		return std::make_unique<dara::Expr>(
 		    dara::Expr{dara::IntExpr{int_res.value()}});
 		*/
-		return std::make_unique<Expr>(Expr{
-		    .value = IntExpr{.value = std::move(int_res.value())},
-		    .line = line,
-		    .col = col});
+		// return std::make_unique<Expr>(
+		//     Expr{.value = IntExpr{.value = std::move(int_res.value())},
+		//          .line = line,
+		//          .col = col});
+
+		end = s->get_current();
+		return std::make_unique<Expr>(
+		    Expr{.value = IntExpr{.value = std::move(int_res.value())},
+		         .span = Span{start, end}});
 	}
 	*s = backup;
 
@@ -779,28 +844,45 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::atom_exp
 		return std::make_unique<dara::Expr>(
 		    dara::Expr{dara::StringExpr{str_res.value()}});
 		*/
-		return std::make_unique<Expr>(Expr{
-		    .value = StringExpr{.value = std::move(str_res.value())},
-		    .line = line,
-		    .col = col});
+		// return std::make_unique<Expr>(
+		//     Expr{.value = StringExpr{.value = std::move(str_res.value())},
+		//          .line = line,
+		//          .col = col});
+
+		end = s->get_current();
+		return std::make_unique<Expr>(
+		    Expr{.value = StringExpr{.value = std::move(str_res.value())},
+		         .span = Span{start, end}});
 	}
 	*s = backup;
 
 	if (auto id_res = identifier(this->s)) {
+		// return std::make_unique<Expr>(
+		//     Expr{.value = VarExpr{.name = std::move(id_res.value())},
+		//          .line = line,
+		//          .col = col});
+
+		end = s->get_current();
 		return std::make_unique<Expr>(
 		    Expr{.value = VarExpr{.name = std::move(id_res.value())},
-		              .line = line,
-		              .col = col});
+		         .span = Span{start, end}});
 	}
+
+	end = s->get_current();
 	*(this->s) = backup;
 
 	return std::unexpected(
-	    this->s->make_error("expected an atom (integer, string or variable)"));
+	    // this->s->make_error("expected an atom (integer, double, string or
+	    // variable)", Span{start, end}));
+	    this->s->make_error(
+	        "expected an atom (integer, double, string or variable)"));
 }
 
-/* in parser_expr.cpp */
-std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::fn_expr() {
+/* fn_expr in parser_expr.cpp */
+std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError>
+Parser::fn_expr() {
 	Source backup = *s;
+	size_t start = s->get_current();
 
 	if (!Function(this->s)) {
 		*s = backup;
@@ -809,25 +891,28 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::fn_expr(
 	}
 
 	if (!LParen(this->s)) {
-		*s = backup;
-		PRINT_LINE();
+		//*s = backup;
+		// PRINT_LINE();
 		return std::unexpected(this->s->make_error("Expected '(' after 'fn'"));
 	}
 
-	std::vector<std::string> parameters;
+	//std::vector<std::string> parameters;
+	std::vector<dara::ast::Identifier> parameters;
 
 	if (!RParen(this->s)) {
 		do {
 			auto param_res = identifier(this->s);
 
-			if (!param_res) return std::unexpected(param_res.error());
+			if (!param_res) {
+				return std::unexpected(param_res.error());
+			}
 
 			parameters.push_back(param_res.value());
 		} while (Comma(this->s));
 
 		if (!RParen(this->s)) {
 			return std::unexpected(
-			    this->s->make_error("Expected ')' after paramters"));
+			    this->s->make_error("Expected ')' after parameters"));
 		}
 	}
 
@@ -849,36 +934,46 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::fn_expr(
 		body.push_back(std::move(decl_res.value()));
 	}
 
-	auto function_expr = std::make_unique<Expr>();
-	function_expr->value = FunctionExpr{std::move(parameters), std::move(body)};
+	size_t end = s->get_current();
+	// auto function_expr = std::make_unique<Expr>();
+	// function_expr->value = FunctionExpr{std::move(parameters),
+	// std::move(body)}; function_expr->span = Span{start, end}; return
+	// function_expr;
 
-	return function_expr;
+	return std::make_unique<Expr>(
+	    Expr{.value = FunctionExpr{std::move(parameters), std::move(body)},
+	         .span = Span{start, end}});
 }
 
 /*
-std::expected<std::unique_ptr<dara::Expr>, dara::error::SynataxError> Parser::this_expr() {
-    auto this_expr = std::make_unique<dara::Expr>();
-    return this_expr;
+std::expected<std::unique_ptr<dara::Expr>, dara::error::SyntaxError>
+Parser::this_expr() { auto this_expr = std::make_unique<dara::Expr>(); return
+this_expr;
 }
 */
 
-std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::this_expr() {
+/* this_expr in parser_expr.cpp */
+std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError>
+Parser::this_expr() {
+	size_t start = s->get_current();
 	// 1. "this" というキーワードを確実に消費（Consume）する
 	if (!This(this->s)) {
 		return std::unexpected(this->s->make_error("Expected 'this' keyword"));
 	}
 
-	// 2. ASTノードを作成し、中身の variant に ThisExpr をセットする
-	auto expr_node = std::make_unique<Expr>();
-	expr_node->value =
-	    ThisExpr{};  // ※ご自身のAST構造体名に合わせてください
+	size_t end = s->get_current();
 
-	return expr_node;
+	// auto expr_node = std::make_unique<Expr>();
+	// expr_node->value = ThisExpr{};
+	// return expr_node;
+	return std::make_unique<Expr>(
+	    Expr{.value = ThisExpr{}, .span = Span{start, end}});
 }
 
 /* nud in parser_expr.cpp */
-std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::nud() {
-	// if (auto res = parse_prefix_expr(s)) return res;
+std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError> Parser::nud() {
+	// size_t start = s->get_current();
+	//  if (auto res = parse_prefix_expr(s)) return res;
 	//
 
 	Source backup = *(this->s);
@@ -923,8 +1018,8 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::nud() {
 	if (this->s->isEnd()) {
 		return std::unexpected(this->s->make_error("unexpected EOF"));
 	} else {
-		PRINT_LINE();
-		if (auto peek_res = this->s->peek()) {  //(*)
+		// PRINT_LINE();
+		if (auto peek_res = this->s->peek()) {
 			std::cout << "[DEBUG] parse_nud failed at char: '"
 			          << peek_res.value() << "'" << std::endl;
 		}
@@ -935,11 +1030,20 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::nud() {
 }
 
 /* Parser::expr in parser_expr.cpp */
-std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::expr(
+std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError> Parser::expr(
     int min_bp /* = 0 */) {
 	this->s->skip_whitespace();  //(**)
+	// size_t start = s->get_current();
+
+	// auto space_res = s->skip_whitespace();
+	// if (!space_res) {
+	//	return std::unexpected(space_res.error());
+	// }
+
 	auto lhs_res = this->nud();
-	if (!lhs_res) return std::unexpected(lhs_res.error());
+	if (!lhs_res) {
+		return std::unexpected(lhs_res.error());
+	}
 
 	auto lhs = std::move(lhs_res.value());
 
@@ -948,19 +1052,22 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::expr(
 
 		// postfix_op //
 		if (auto postfix_op_res = this->postfix_op()) {
+			size_t start = lhs->span.start;
 			PostfixOperator op = postfix_op_res.value();
 			const PostfixTrait* trait_ptr = get_postfix_trait(op);
 			if (!trait_ptr) {
 				return std::unexpected(
-				    dara::error::SynataxError{"Unknown postfix operator."});
+				    dara::error::SyntaxError{"Unknown postfix operator."});
 			}
 			if (trait_ptr->lbp < min_bp) {
 				*(this->s) = loop_backup;
 				break;
 			}
 
+			size_t end = s->get_current();
 			auto new_expr = std::make_unique<Expr>();
 			new_expr->value = trait_ptr->make(std::move(lhs));
+			new_expr->span = Span{start, end};
 			lhs = std::move(new_expr);
 
 			// lhs = make_cons(postfix_op, std::move(lhs));
@@ -977,7 +1084,8 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::expr(
 			if (trait_ptr->lbp < min_bp) {
 				*(this->s) = loop_backup;
 			} else {
-				// std::expected<std::unique_ptr<dara::Expr>, dara::error::SynataxError>
+				// std::expected<std::unique_ptr<dara::Expr>,
+				// dara::error::SyntaxError>
 				//     parsed_res;
 
 				/*
@@ -990,7 +1098,9 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::expr(
 				}
 				*/
 				auto parsed_res = this->mixfix_expr(op, std::move(lhs));
-				if (!parsed_res) return std::unexpected(parsed_res.error());
+				if (!parsed_res) {
+					return std::unexpected(parsed_res.error());
+				}
 
 				lhs = std::move(parsed_res.value());
 
@@ -1021,16 +1131,26 @@ std::expected<std::unique_ptr<Expr>, dara::error::SynataxError> Parser::expr(
 			break;
 		}
 
+		size_t end = s->get_current();
 		auto irhs_res = this->expr(trait_ptr->rbp)
 		                    .transform([&](std::unique_ptr<Expr> irhs) {
-			                    auto new_expr = std::make_unique<Expr>();
-			                    new_expr->value = trait_ptr->make(
-			                        std::move(lhs), std::move(irhs));
+			                    size_t start = lhs->span.start;
+			                    size_t end = irhs->span.end;
 
-			                    return new_expr;
+			                    // auto new_expr = std::make_unique<Expr>();
+			                    // new_expr->value = trait_ptr->make(
+			                    //     std::move(lhs), std::move(irhs));
+			                    // new_expr->span = Span(start, end);
+			                    // return new_expr;
+			                    return std::make_unique<Expr>(
+			                        Expr{.value = trait_ptr->make(
+			                                 std::move(lhs), std::move(irhs)),
+			                             .span = Span{start, end}});
 		                    });
 
-		if (!irhs_res) return std::unexpected(irhs_res.error());
+		if (!irhs_res) {
+			return std::unexpected(irhs_res.error());
+		}
 
 		lhs = std::move(irhs_res.value());
 	}

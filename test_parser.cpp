@@ -153,7 +153,8 @@ TEST_CASE("Rule: Expression Statement") {  //(***)
 		REQUIRE_FALSE(res.has_value());
 		// CHECK(res.error().message == "Expected ';' after expression");
 		CHECK(res.error().message ==
-		      "Expected ';' after expression, but got 'EOF'");
+		      //"Expected ';' after expression, but got 'EOF'");
+		      "Expected ';' after expression");
 	}
 }
 

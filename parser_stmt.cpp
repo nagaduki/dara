@@ -31,9 +31,9 @@ namespace dara::frontend {
 
 /* in parser_stmt.cpp */
 /*
-std::expected<std::unique_ptr<dara::Stmt>, dara::error::SynataxError> Parser::expr_stmt(
-    std::unique_ptr<dara::Expr> expr) {
-    if (!Semicolon(this->s)) {
+std::expected<std::unique_ptr<dara::Stmt>, dara::error::SyntaxError>
+Parser::expr_stmt( std::unique_ptr<dara::Expr> expr) { if (!Semicolon(this->s))
+{
         // PRINT_LINE();
         std::string error_message = std::format(
             "Expected ';' after expression {}", this->s->peek().value());
@@ -46,109 +46,174 @@ std::expected<std::unique_ptr<dara::Stmt>, dara::error::SynataxError> Parser::ex
 }
 */
 
-std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::expr_stmt(
-    std::unique_ptr<Expr> expr) {
-	if (!Semicolon(this->s)) {
-		auto peek_res = this->s->peek();
-		std::string actual_char =
-		    peek_res.has_value() ? std::string(1, peek_res.value()) : "EOF";
+/* expr_stmt in parser_stmt.cpp */
+std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError>
+Parser::expr_stmt(std::unique_ptr<Expr> expr) {
+	size_t start = expr->span.start;
 
-		std::string error_message = std::format(
-		    "Expected ';' after expression, but got '{}'", actual_char);
-		return std::unexpected(s->make_error(error_message));
+	/*
+	if (!Semicolon(this->s)) {
+	    auto peek_res = this->s->peek();
+	    std::string actual_char =
+	        peek_res.has_value() ? std::string(1, peek_res.value()) : "EOF";
+
+	    std::string error_message = std::format(
+	        "Expected ';' after expression, but got '{}'", actual_char);
+	    return std::unexpected(s->make_error(error_message));
 	}
-	return std::make_unique<Stmt>(ExprStmt{std::move(expr)});
+	*/
+	if (!Semicolon(this->s)) {
+		return std::unexpected(s->make_error("Expected ';' after expression"));
+	}
+	size_t end = s->get_current();
+	return std::make_unique<Stmt>(
+	    Stmt{.value = ExprStmt{std::move(expr)}, .span = Span{start, end}});
 }
 
-std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::print_stmt() {
-	int line = this->s->line;
-	int col = this->s->col;
+std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError>
+Parser::print_stmt() {
+	size_t start = s->get_current();
+	// int line = this->s->line;
+	// int col = this->s->col;
+	// if (!LBrace(s)) {
+	if (!Print(this->s)) {
+		// PRINT_LINE();
+		//*(this->s) = backup;
+		return std::unexpected(
+		    s->make_error("not 'print' at the beginning of print statement"));
+	}
 
 	auto expr_res = this->expr();
 
-	if (!expr_res) return std::unexpected(expr_res.error());
+	if (!expr_res) {
+		return std::unexpected(expr_res.error());
+	}
 
 	if (!Semicolon(this->s)) {
 		return std::unexpected(
 		    this->s->make_error("Expected ';' after value."));
 	}
 
+	size_t end = s->get_current();
 	return std::make_unique<Stmt>(
 	    Stmt{.value = PrintStmt{std::move(expr_res.value())},
-	              .line = line,
-	              .col = col});
+	         .span = Span{start, end}});
 }
 
-/* in parser_stmt.cpp */
-std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::assign_stmt(
-    std::unique_ptr<Expr> lhs) {
+/* assign_stmt in parser_stmt.cpp */
+std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError>
+Parser::assign_stmt(std::unique_ptr<Expr> lhs) {
+	size_t start = lhs->span.start;
+
+	if (!Assign(this->s)) {
+		return std::unexpected(
+		    s->make_error("not 'let' at the beginning of assign statement"));
+	}
+
 	auto rhs_res = this->expr();
-	if (!rhs_res) return std::unexpected(rhs_res.error());
+	if (!rhs_res) {
+		return std::unexpected(rhs_res.error());
+	}
 
 	if (!Semicolon(this->s)) {
 		return std::unexpected(s->make_error("Expected ';' after assign."));
 	}
+
+	size_t end = s->get_current();
+
 	return std::visit(
 	    overloaded{
-	        [&](VarExpr& var_expr)
-	            -> std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> {
-		        return std::make_unique<Stmt>(
-		            AssignStmt{.name = std::move(var_expr.name),
-		                            .value = std::move(rhs_res.value())});
+	        [&](VarExpr& var_expr) -> std::expected<std::unique_ptr<Stmt>,
+	                                                dara::error::SyntaxError> {
+		        return std::make_unique<Stmt>(Stmt{
+		            .value = AssignStmt{.name = std::move(var_expr.name),
+		                                .value = std::move(rhs_res.value())},
+		            .span = Span{start, end}});
 	        },
-	        [&](GetExpr& get_expr)
-	            -> std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> {
+	        [&](GetExpr& get_expr) -> std::expected<std::unique_ptr<Stmt>,
+	                                                dara::error::SyntaxError> {
 		        return std::make_unique<Stmt>(
-		            SetStmt{.object = std::move(get_expr.object),
-		                         .name = std::move(get_expr.name),
-		                         .value = std::move(rhs_res.value())});
+		            Stmt{.value = SetStmt{.object = std::move(get_expr.object),
+		                                  .name = std::move(get_expr.name),
+		                                  .value = std::move(rhs_res.value())},
+		                 .span = Span{start, end}});
 	        },
 
-	        [&](auto&)
-	            -> std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> {
+	        [&](auto&) -> std::expected<std::unique_ptr<Stmt>,
+	                                    dara::error::SyntaxError> {
 		        return std::unexpected(
-		            s->make_error("Invalid assignment target."));
+		            s->make_error("Invalid assignment target.", lhs->span));
 	        }},
 	    lhs->value);
 }
 
 /* in parser_stmt.cpp */
-std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::add_assign_stmt(
-    std::unique_ptr<Expr> lhs) {
+std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError>
+Parser::add_assign_stmt(std::unique_ptr<Expr> lhs) {
+	size_t start = lhs->span.start;
 	auto rhs_res = this->expr();
-	if (!rhs_res) return std::unexpected(rhs_res.error());
+	if (!rhs_res) {
+		return std::unexpected(rhs_res.error());
+	}
 
 	if (!Semicolon(this->s)) {
 		return std::unexpected(s->make_error("Expected ';' after add assign."));
 	}
+
+	size_t end = s->get_current();
+
 	return std::visit(
 	    overloaded{
-	        [&](VarExpr& var_expr)
-	            -> std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> {
-		        return std::make_unique<Stmt>(CompoundAssignStmt{
-		            .name = std::move(var_expr.name),
-		            .op = InfixOperator::Add,
-		            .value = std::move(rhs_res.value())});
+	        [&](VarExpr& var_expr) -> std::expected<std::unique_ptr<Stmt>,
+	                                                dara::error::SyntaxError> {
+		        return std::make_unique<Stmt>(Stmt{
+		            .value =
+		                CompoundAssignStmt{.name = std::move(var_expr.name),
+		                                   .op = InfixOperator::Add,
+		                                   .value = std::move(rhs_res.value())},
+		            .span = Span{start, end}});
 	        },
-	        [&](GetExpr& get_expr)
-	            -> std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> {
-		        return std::make_unique<Stmt>(
-		            CompoundSetStmt{.object = std::move(get_expr.object),
-		                                 .name = std::move(get_expr.name),
-		                                 .op = InfixOperator::Add,
-		                                 .value = std::move(rhs_res.value())});
+	        [&](GetExpr& get_expr) -> std::expected<std::unique_ptr<Stmt>,
+	                                                dara::error::SyntaxError> {
+		        return std::make_unique<Stmt>(Stmt{
+		            .value =
+		                CompoundSetStmt{.object = std::move(get_expr.object),
+		                                .name = std::move(get_expr.name),
+		                                .op = InfixOperator::Add,
+		                                .value = std::move(rhs_res.value())},
+		            .span = Span{start, end}});
 	        },
 
-	        [&](auto&)
-	            -> std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> {
+	        [&](auto&) -> std::expected<std::unique_ptr<Stmt>,
+	                                    dara::error::SyntaxError> {
 		        return std::unexpected(
-		            s->make_error("Invalid assignment target."));
+		            s->make_error("Invalid assignment target.", lhs->span));
 	        }},
 	    lhs->value);
 }
 
-std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError>
+std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError>
 Parser::compound_assign_stmt(std::unique_ptr<Expr> lhs, InfixOperator op) {
+	size_t start = lhs->span.start;
+
+	/*
+	if (!AddAssign(this->s) || !SubAssign(this->s)) {
+	    return std::unexpected(s->make_error("not '++' or '--' at the beginning
+	of compound statement"));
+	}
+	*/
+	if (op == InfixOperator::Add) {
+		if (!AddAssign(this->s)) {
+			return std::unexpected(s->make_error(
+			    "Expected '+=' at the beginning of compound statement"));
+		}
+	} else if (op == InfixOperator::Sub) {
+		if (!SubAssign(this->s)) {
+			return std::unexpected(s->make_error(
+			    "Expected '-=' at the beginning of compound statement"));
+		}
+	}
+
 	auto rhs_res = this->expr();
 	if (!rhs_res) {
 		return std::unexpected(rhs_res.error());
@@ -158,34 +223,40 @@ Parser::compound_assign_stmt(std::unique_ptr<Expr> lhs, InfixOperator op) {
 		    s->make_error("Expected ';' after compound assign"));
 	}
 
+	size_t end = s->get_current();
+
 	return std::visit(
 	    overloaded{
-	        [&](VarExpr& var_expr)
-	            -> std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> {
-		        return std::make_unique<Stmt>(CompoundAssignStmt{
-		            .name = std::move(var_expr.name),
-		            .op = op,
-		            .value = std::move(rhs_res.value())});
+	        [&](VarExpr& var_expr) -> std::expected<std::unique_ptr<Stmt>,
+	                                                dara::error::SyntaxError> {
+		        return std::make_unique<Stmt>(Stmt{
+		            .value =
+		                CompoundAssignStmt{.name = std::move(var_expr.name),
+		                                   .op = op,
+		                                   .value = std::move(rhs_res.value())},
+		            .span = Span{start, end}});
 	        },
-	        [&](GetExpr& get_expr)
-	            -> std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> {
-		        return std::make_unique<Stmt>(
-		            CompoundSetStmt{.object = std::move(get_expr.object),
-		                                 .name = std::move(get_expr.name),
-		                                 .op = op,
-		                                 .value = std::move(rhs_res.value())});
+	        [&](GetExpr& get_expr) -> std::expected<std::unique_ptr<Stmt>,
+	                                                dara::error::SyntaxError> {
+		        return std::make_unique<Stmt>(Stmt{
+		            .value =
+		                CompoundSetStmt{.object = std::move(get_expr.object),
+		                                .name = std::move(get_expr.name),
+		                                .op = op,
+		                                .value = std::move(rhs_res.value())},
+		            .span = Span{start, end}});
 	        },
-	        [&](auto&)
-	            -> std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> {
+	        [&](auto&) -> std::expected<std::unique_ptr<Stmt>,
+	                                    dara::error::SyntaxError> {
 		        return std::unexpected(
-		            s->make_error("Invalid assignment target."));
+		            s->make_error("Invalid assignment target.", lhs->span));
 	        }},
 	    lhs->value);
 }
 /*
-std::expected<std::unique_ptr<dara::Stmt>, dara::error::SynataxError> _parse_brace_stmt(
-    Source* s) {
-    if (!LBrace(s)) return std::unexpected(s->make_error("not '{'"));
+std::expected<std::unique_ptr<dara::Stmt>, dara::error::SyntaxError>
+_parse_brace_stmt( Source* s) { if (!LBrace(s)) return
+std::unexpected(s->make_error("not '{'"));
 
     auto inner_res = parse_stmt(s);
     if (!inner_res) return std::unexpected(inner_res.error());
@@ -196,13 +267,18 @@ std::expected<std::unique_ptr<dara::Stmt>, dara::error::SynataxError> _parse_bra
 }
 */
 
-/* parse_brace_stmt */
-std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::brace_stmt() {
-	int line = s->line;
-	int col = s->col;
+/* brace_stmt in parser_stmt.cpp */
+std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError>
+Parser::brace_stmt() {
+	size_t start = s->get_current();
+	// int line = s->line;
+	// int col = s->col;
+
+	// Source backup = *(this->s);
 
 	if (!LBrace(s)) {
 		// PRINT_LINE();
+		//*(this->s) = backup;
 		return std::unexpected(s->make_error("not '{'"));
 	}
 
@@ -221,31 +297,52 @@ std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::brace_st
 
 		declarations.push_back(std::move(decl_res.value()));
 	}
+	size_t end = s->get_current();
 
 	return std::make_unique<Stmt>(
-	    Stmt{BlockStmt{std::move(declarations)}, line, col});
+	    // Stmt{BlockStmt{std::move(declarations)}, line, col});
+	    Stmt{BlockStmt{std::move(declarations)}, Span{start, end}});
 }
 
-/* parse_else_stmt */
-std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::else_stmt() {
-	int line = this->s->line;
-	int col = this->s->col;
+/* else_stmt in parse_stmt.cpp */
+std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError>
+Parser::else_stmt() {
+	// size_t start = s->get_current();
+	//  int line = this->s->line;
+	//  int col = this->s->col;
 	auto then_res = this->brace_stmt();
-	if (!then_res) return std::unexpected(then_res.error());
+	if (!then_res) {
+		return std::unexpected(then_res.error());  //(***)
+	}
 
+	// s->make_error("Invalid assignment target.", lhs->span));
 	return then_res;
 }
 
 /* parse_if_stmt */
-std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::if_stmt() {
-	int line = this->s->line;
-	int col = this->s->col;
+std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError>
+Parser::if_stmt() {
+	size_t start = s->get_current();
+	// size_t end = start + 1;
+	//  int line = this->s->line;
+	//  int col = this->s->col;
+
+	if (!Print(this->s)) {
+		// PRINT_LINE();
+		//*(this->s) = backup;
+		return std::unexpected(
+		    s->make_error("not 'if' at the beginning of print statement"));
+	}
 
 	auto condition_res = this->expr();
-	if (!condition_res) return std::unexpected(condition_res.error());
+	if (!condition_res) {
+		return std::unexpected(condition_res.error());
+	}
 
 	auto then_res = this->brace_stmt();
-	if (!then_res) return std::unexpected(then_res.error());
+	if (!then_res) {
+		return std::unexpected(then_res.error());
+	}
 
 	std::unique_ptr<Stmt> else_res = nullptr;
 	if (Else(this->s)) {
@@ -254,14 +351,25 @@ std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::if_stmt(
 		else_res = std::move(else_block_res.value());
 	}
 
-	return std::make_unique<Stmt>(Stmt{
-	    .value = IfStmt{std::move(condition_res.value()),
+	size_t end = s->get_current();
+
+	return std::make_unique<Stmt>(
+	    Stmt{.value = IfStmt{std::move(condition_res.value()),
 	                         std::move(then_res.value()), std::move(else_res)},
-	    .line = line,
-	    .col = col});
+	         .span = Span{start, end}});
+	//.line = line,
+	//.col = col});
 }
 
-std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::while_stmt() {
+std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError>
+Parser::while_stmt() {
+	size_t start = s->get_current();
+
+	if (!While(this->s)) {
+		return std::unexpected(
+		    s->make_error("not 'while' at the beginning of print statement"));
+	}
+
 	auto condition_res = this->expr();
 	if (!condition_res) {
 		return std::unexpected(condition_res.error());
@@ -274,34 +382,60 @@ std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::while_st
 		return std::unexpected(body_res.error());
 	}
 
+	size_t end = s->get_current();
 	return std::make_unique<Stmt>(
 	    Stmt{.value = WhileStmt{std::move(condition_res.value()),
-	                                      std::move(body_res.value())}});
+	                            std::move(body_res.value())},
+	         .span = Span{start, end}});
 }
 
-std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::forin_stmt() {
-	if (!LParen(this->s))
+/* forin_stmt in parser_stmt.cpp */
+std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError>
+Parser::forin_stmt() {
+	size_t start = s->get_current();
+
+	if (!For(this->s)) {
+		return std::unexpected(
+		    s->make_error("not 'for' at the beginning of print statement"));
+	}
+
+	if (!LParen(this->s)) {
 		return std::unexpected(
 		    this->s->make_error("Expected '(' after 'for'."));
+	}
 
 	Let(this->s);  // 戻り値は無視して進める
 
-	auto var_name_res = identifier(this->s);  // ご自身の識別子パース関数
+	auto var_name_res = identifier(this->s);
+	//
+	size_t end = s->get_current();
 	if (!var_name_res) {
-		return std::unexpected(this->s->make_error("Expected variable name."));
+		return std::unexpected(
+		    // this->s->make_error("Expected variable name.", Span{start,
+		    // end}));
+		    this->s->make_error("Expected variable name."));
 	}
-	std::string var_name = var_name_res.value();
 
+	// std::string var_name = var_name_res.value();
+	dara::ast::Identifier var_name = var_name_res.value();
+
+	end = s->get_current();
 	if (!In(this->s)) {
-		return std::unexpected(
-		    this->s->make_error("Expected 'in' after loop variable."));
+		return std::unexpected(this->s->make_error(
+		    //"Expected 'in' after loop variable.", Span{start, end}));
+		    "Expected 'in' after loop variable."));
 	}
-	auto iterable_res = this->expr(0);
-	if (!iterable_res) return std::unexpected(iterable_res.error());
 
+	auto iterable_res = this->expr(0);
+	if (!iterable_res) {
+		return std::unexpected(iterable_res.error());
+	}
+
+	end = s->get_current();
 	if (!RParen(this->s)) {
-		return std::unexpected(
-		    this->s->make_error("Expected ')' after loop iterable."));
+		return std::unexpected(this->s->make_error(
+		    //"Expected ')' after loop iterable.", Span{start, end}));
+		    "Expected ')' after loop iterable."));
 	}
 
 	LoopDepthGuard guard(this->loop_depth);
@@ -311,14 +445,23 @@ std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::forin_st
 		return std::unexpected(body_res.error());
 	}
 
-	return std::make_unique<Stmt>(Stmt{
-	    .value = ForInStmt{.loop_variable = var_name,
+	end = s->get_current();
+	return std::make_unique<Stmt>(
+	    Stmt{.value = ForInStmt{.loop_variable = var_name,
 	                            .iterable = std::move(iterable_res.value()),
-	                            .body = std::move(body_res.value())}});
+	                            .body = std::move(body_res.value())},
+	         .span = Span{start, end}});
 }
 
-std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::inc_stmt(
+std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError> Parser::inc_stmt(
     std::unique_ptr<Expr> expr) {
+	size_t start = expr->span.start;
+
+	if (!Inc(this->s)) {
+		return std::unexpected(
+		    s->make_error("not '++' at the beginning of increment statement"));
+	}
+
 	if (!Semicolon(this->s)) {
 		return std::unexpected(s->make_error("Expected ';' after '++'."));
 	}
@@ -330,12 +473,21 @@ std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::inc_stmt
 	}
 
 	// 4. ASTノードを返す
+	size_t end = s->get_current();
 	return std::make_unique<Stmt>(
-	    Stmt{.value = IncStmt{var_expr->name}});
+	    Stmt{.value = IncStmt{var_expr->name}, .span = Span{start, end}});
 }
 
-std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::dec_stmt(
+/* dec_stmt in parser_stmt.cpp */
+std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError> Parser::dec_stmt(
     std::unique_ptr<Expr> expr) {
+	size_t start = expr->span.start;
+
+	if (!Dec(this->s)) {
+		return std::unexpected(
+		    s->make_error("not '--' at the beginning of decriment statement"));
+	}
+
 	if (!Semicolon(this->s)) {
 		return std::unexpected(s->make_error("Expected ';' after '--'."));
 	}
@@ -347,20 +499,33 @@ std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::dec_stmt
 	}
 
 	// 4. ASTノードを返す
+	size_t end = s->get_current();
 	return std::make_unique<Stmt>(
-	    Stmt{.value = DecStmt{var_expr->name}});
+	    Stmt{.value = DecStmt{var_expr->name}, .span = Span{start, end}});
 }
 
-/* in parser_stmt.cpp */
-std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::return_stmt() {
-	// PRINT_LINE();
+/* return_stmt in parser_stmt.cpp */
+std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError>
+Parser::return_stmt() {
+	size_t start = s->get_current();
+	// size_t end = start + 1;
+	//  PRINT_LINE();
 	std::unique_ptr<Expr> return_value = nullptr;
 
+	if (!Return(this->s)) {
+		return std::unexpected(
+		    s->make_error("not 'return' at the beginning of return statement"));
+	}
+
 	if (Semicolon(this->s)) {
-		PRINT_LINE();
-		auto stmt = std::make_unique<Stmt>();
-		stmt->value = ReturnStmt{nullptr};
-		return stmt;
+		// PRINT_LINE();
+		size_t end = s->get_current();
+		// auto stmt = std::make_unique<Stmt>();
+		// stmt->value = ReturnStmt{nullptr};
+		// stmt->span = Span{start, end};
+		// return stmt;
+		return std::make_unique<Stmt>(
+		    Stmt{.value = ReturnStmt{nullptr}, .span = Span{start, end}});
 	}
 
 	auto expr_res = this->expr(0);
@@ -375,16 +540,30 @@ std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::return_s
 		    this->s->make_error("Expected ';' after return value"));
 	}
 
-	auto stmt = std::make_unique<Stmt>();  //(*)
-	stmt->value = ReturnStmt{std::move(return_value)};
+	size_t end = s->get_current();
+	// auto stmt = std::make_unique<Stmt>();  //(*)
+	// stmt->value = ReturnStmt{std::move(return_value)};
+	// stmt->span = Span{start, end};
 
-	PRINT_LINE();
-	return stmt;
+	// PRINT_LINE();
+	// return stmt;
+	return std::make_unique<Stmt>(
+	    Stmt{.value = ReturnStmt{std::move(return_value)},
+	         .span = Span{start, end}});
 }
 
-std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::break_stmt() {
+/* break_stmt in parser_stmt.cpp */
+std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError>
+Parser::break_stmt() {
+	size_t start = s->get_current();
+
+	if (!Break(this->s)) {
+		return std::unexpected(
+		    s->make_error("not 'break' at the beginning of break statement"));
+	}
+
 	if (this->loop_depth == 0) {
-		PRINT_LINE();
+		// PRINT_LINE();
 		return std::unexpected(
 		    this->s->make_error("cannot use 'break' outside of a loop"));
 	}
@@ -394,58 +573,116 @@ std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::break_st
 		    this->s->make_error("expected ';' after 'break'"));
 	}
 
-	return std::make_unique<Stmt>(Stmt{.value = BreakStmt{}});
+	size_t end = s->get_current();
+	return std::make_unique<Stmt>(
+	    Stmt{.value = BreakStmt{}, .span = Span{start, end}});
 }
 
-std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::continue_stmt() {
+std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError>
+Parser::continue_stmt() {
+	size_t start = s->get_current();
+
+	if (!Continue(this->s)) {
+		return std::unexpected(s->make_error(
+		    "not 'continue' at the beginning of continue statement"));
+	}
+
 	if (this->loop_depth == 0) {
-		PRINT_LINE();
+		// PRINT_LINE();
 		return std::unexpected(
 		    this->s->make_error("cannot use 'continue' outside of a loop"));
 	}
 
 	if (!Semicolon(this->s)) {
 		return std::unexpected(
-		    this->s->make_error("expected ';' after 'break'"));
+		    this->s->make_error("expected ';' after 'continue'"));
 	}
 
-	return std::make_unique<Stmt>(Stmt{.value = BreakStmt{}});
+	size_t end = s->get_current();
+	return std::make_unique<Stmt>(
+	    Stmt{.value = ContinueStmt{}, .span = Span{start, end}});
 }
 
-/* in parser_stmt.cpp */
-/* parse_stmt */
-std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::stmt() {
-	this->s->skip_whitespace();  //(**)
-	if (auto block_res = this->brace_stmt()) {
-		return block_res;
+/* stmt in parser_stmt.cpp */
+std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError> Parser::stmt() {
+	this->s->skip_whitespace();  //
+	                             // size_t start = s->get_current();
+
+	// auto space_res = s->skip_whitespace();
+	// if (!space_res) {
+	//	return std::unexpected(space_res.error());
+	// }
+	// Else(this->s)
+
+	// if (auto block_res = this->brace_stmt()) {
+	//	return block_res;
+	// }
+
+	Source backup = *(this->s);
+
+	if (LBrace(this->s)) {
+		*(this->s) = backup;
+		return this->brace_stmt();
 	}
 
+	/*
 	if (Print(this->s)) {
+	    return this->print_stmt();
+	}
+
+	if (If(this->s)) {
+	    return this->if_stmt();
+	}
+
+	if (While(this->s)) {
+	    return this->while_stmt();
+	}
+
+	if (For(this->s)) {
+	    return this->forin_stmt();
+	}
+
+	if (Return(this->s)) {
+	    // PRINT_LINE();
+	    return this->return_stmt();
+	}
+
+	if (Break(this->s)) {
+	    return this->break_stmt();
+	}
+
+	if (Continue(this->s)) {
+	    return this->continue_stmt();
+	}
+	*/
+
+	if (Print(this->s)) {
+		*(this->s) = backup;
 		return this->print_stmt();
 	}
 
 	if (If(this->s)) {
+		*(this->s) = backup;
 		return this->if_stmt();
 	}
 
 	if (While(this->s)) {
+		*(this->s) = backup;
 		return this->while_stmt();
 	}
 
 	if (For(this->s)) {
+		*(this->s) = backup;
 		return this->forin_stmt();
 	}
 
 	if (Return(this->s)) {
-		// PRINT_LINE();
+		*(this->s) = backup;
 		return this->return_stmt();
 	}
 
-	if (Break(this->s)) {
-		return this->break_stmt();
-	}
-
 	if (Continue(this->s)) {
+		*(this->s) = backup;
 		return this->continue_stmt();
 	}
 
@@ -453,19 +690,33 @@ std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::stmt() {
 	if (!expr_res) {
 		return std::unexpected(expr_res.error());
 	}
-	auto expr = std::move(expr_res.value());
 
-	/* i++ */
+	auto expr = std::move(expr_res.value());  //(***)
+
+	/*
+	// i++
 	auto post_inc = Inc(this->s);
 	if (post_inc) {
+	    return this->inc_stmt(std::move(expr));
+	}
+
+	// i--
+	auto post_dec = Dec(this->s);
+	if (post_dec) {
+	    return this->dec_stmt(std::move(expr));
+	}
+	*/
+
+	if (Inc(this->s)) {
+		*(this->s) = backup;
 		return this->inc_stmt(std::move(expr));
 	}
 
-	/* i-- */
-	auto post_dec = Dec(this->s);
-	if (post_dec) {
+	if (Dec(this->s)) {
+		*(this->s) = backup;
 		return this->dec_stmt(std::move(expr));
 	}
+
 	/*
 *   // func(, class., array[ の処理 //
 	auto post_lparen = LParen(this->s);
@@ -482,14 +733,32 @@ std::expected<std::unique_ptr<Stmt>, dara::error::SynataxError> Parser::stmt() {
 	}
 	*/
 
+	/*
 	if (Assign(this->s)) {
+	    return this->assign_stmt(std::move(expr));
+	}
+
+	if (AddAssign(this->s)) {
+	    return this->compound_assign_stmt(std::move(expr), InfixOperator::Add);
+	}
+
+	if (SubAssign(this->s)) {
+	    return this->compound_assign_stmt(std::move(expr), InfixOperator::Sub);
+	}
+	*/
+
+	if (Assign(this->s)) {
+		*(this->s) = backup;
 		return this->assign_stmt(std::move(expr));
 	}
-	/* 0807 */
+
 	if (AddAssign(this->s)) {
+		*(this->s) = backup;
 		return this->compound_assign_stmt(std::move(expr), InfixOperator::Add);
 	}
+
 	if (SubAssign(this->s)) {
+		*(this->s) = backup;
 		return this->compound_assign_stmt(std::move(expr), InfixOperator::Sub);
 	}
 

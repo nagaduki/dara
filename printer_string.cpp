@@ -2,10 +2,13 @@
 
 #include <string>
 
-#include "ast.hpp"
+//#include "ast.hpp"
+#include "operator.hpp"
+//#include "lexer.hpp"
 #include "printer.hpp"
 
-using namespace dara::lexer;
+//using namespace dara::lexer;
+using namespace dara::core;
 using namespace dara::ast;
 
 template <class... Ts>
@@ -44,7 +47,7 @@ std::string StringPrinter::visit_expr(const Expr* expr) {
 	               },
 	               [](const VarExpr& expr) {  //(*)
 		               // return this->visit_stmt(vd.initializer.get());
-		               return std::format("\"{}\"", expr.name);  //(*)
+		               return std::format("\"{}\"", expr.name.lexeme);  //(*)
 	               },
 	               [](const BoolExpr& expr) {  //(*)
 		               // return this->visit_stmt(vd.initializer.get());
@@ -205,10 +208,10 @@ std::string StringPrinter::visit_stmt(const Stmt* stmt) {
 		                                  this->visit_expr(ps.expr.get()));
 	               },
 	               [](const IncStmt& s) {
-		               return std::format("(++ {})", s.name);
+		               return std::format("(++ {})", s.name.lexeme);
 	               },
 	               [](const DecStmt& s) {
-		               return std::format("(-- {})", s.name);
+		               return std::format("(-- {})", s.name.lexeme);
 	               },
 	               [](const auto&) -> std::string {
 		               return "unimplemented_decl_node";

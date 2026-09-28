@@ -14,6 +14,7 @@
 	std::cout << "Line: " << __LINE__ << " (in " << __FILE__ << ")" << std::endl
 
 using namespace dara::ast;
+using namespace dara::core;
 
 void run_file(const char* file_path) {
 	DotPrinter dotprinter;
@@ -34,31 +35,46 @@ void run_file(const char* file_path) {
 	interpreter.dir_stack.push_back(
 	    std::filesystem::absolute(file_path).parent_path());
 
-	auto program_res = p.program();
-	if (!program_res) {
-		std::cerr << "syntax error: " << program_res.error().message << "\n";
-		return;
-	}
-	Program program = std::move(program_res.value());
-
-	std::string dot_result = dotprinter.print(&program);
-	auto save_res =
-	    save_to_file(std::format("./{}.dot", file_name), dot_result);
-	if (!save_res) {
-		std::cerr << "failed to save dot file Error: " << save_res.error()
-		          << "\n";
-	}
-
-	if (!convert_dot_to_png(dot_result, std::format("./{}.png", file_name))) {
-		std::cerr << "failed to convert png file Error: " << "\n";
-	}
-
-	for (const auto& decl : program.declarations) {
-		auto val = interpreter.exec(decl.get());
-		if (!val) {
-			std::cerr << "Interpreter Error: " << val.error().message << "\n";
-			break;
+	try {
+		auto program_res = p.program();
+		if (!program_res) {
+			// std::cerr << "syntax error: " << program_res.error().message
+			std::cerr << "syntax error: " << program_res.error().to_string(s)
+			          << "\n";
+			return;
+		} else {
+			std::cout << "syntax ok: " << file_path << std::endl;
 		}
+		Program program = std::move(program_res.value());
+
+		std::string dot_result = dotprinter.print(&program);
+		auto save_res =
+		    save_to_file(std::format("./{}.dot", file_name), dot_result);
+		if (!save_res) {
+			std::cerr << "failed to save dot file Error: " << save_res.error()
+			          << "\n";
+		} else {
+			std::cout << "graphviz ok: " << file_path << std::endl;
+		}
+
+		if (!convert_dot_to_png(dot_result,
+		                        std::format("./{}.png", file_name))) {
+			std::cerr << "failed to convert png file Error: " << "\n";
+		}
+
+		for (const auto& decl : program.declarations) {
+			auto val = interpreter.exec(decl.get());
+			if (!val) {
+				// std::cerr << "Interpreter Error: " << val.error().message
+				//std::cerr << "Interpreter Error: " << val.error().to_string(s)
+				std::cerr << val.error().to_string(s)
+				          << "\n";
+				break;
+			}
+		}
+	} catch (const dara::error::FatalSyntaxError& e) {
+		std::cerr << e.to_string(s) << std::endl;
+		return std::exit(1);
 	}
 }
 void run_repl() {
@@ -102,6 +118,14 @@ void run_repl() {
 			/* main loop */
 			while (!s.isEnd()) {
 				s.skip_whitespace();
+
+				// auto space_res = s.skip_whitespace();
+				// if (!space_res) {
+				//	std::cerr << "syntax error: " << space_res.error().message
+				//	          << "\n";
+				//	return;
+				// }
+
 				dara::lexer::spaces(&s);
 				if (s.isEnd()) {
 					break;
@@ -151,7 +175,8 @@ void run_repl() {
 			for (const auto& decl : program.declarations) {
 				auto val = interpreter.exec(decl.get());
 				if (!val) {
-					std::cerr << "Interpreter Error: " << val.error().message
+					//std::cerr << "Interpreter Error: " << val.error().message
+					std::cerr << val.error().message
 					          << "\n";
 					break;
 				}

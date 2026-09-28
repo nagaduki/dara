@@ -21,7 +21,7 @@ Result<Value> Function::call(Interpreter& interpreter,
 	    this->closure);
 
 	for (size_t i = 0; i < declaration->parameters.size(); ++i) {
-		local_env->define(declaration->parameters[i], arguments[i]);
+		local_env->define(declaration->parameters[i].lexeme, arguments[i]);
 	}
 
 	std::shared_ptr<Environment> previous_env = interpreter.get_environment();

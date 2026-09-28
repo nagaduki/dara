@@ -1,9 +1,17 @@
 /* liexer.cpp */
 
 #include "lexer.hpp"
+// #include "ast.hpp"
 
 #include <expected>
 #include <memory>
+#include <string>
+#include <unordered_set>
+
+static const std::unordered_set<std::string> RESERVED_KEYWORDS = {
+    "let",    "fn",      "if",       "else",   "while", "for", "class",
+    "return", "break",   "continue", "true",   "false", "nil", "this",
+    "print",  "extends", "with",     "static", "in",    "is"};
 
 namespace dara::lexer {
 
@@ -32,8 +40,8 @@ Rule<char> sym(char ch) { return token(char1(ch)); }
 Rule<std::string> sym(std::string str) { return token(string1(str)); }
 
 Rule<std::string> string1(const std::string& str) {
-	Rule<std::string> np = [=](Source* s)
-	    -> std::expected<std::string, dara::error::SynataxError> {
+	Rule<std::string> np =
+	    [=](Source* s) -> std::expected<std::string, dara::error::SyntaxError> {
 		Source backup = *s;
 		for (char c : str) {
 			// char1 (*it)(s);
@@ -50,7 +58,7 @@ Rule<std::string> string1(const std::string& str) {
 };
 
 Rule<bool> boolean_literal =
-    [](Source* s) -> std::expected<bool, dara::error::SynataxError> {
+    [](Source* s) -> std::expected<bool, dara::error::SyntaxError> {
 	if (True(s)) return true;
 	if (False(s)) return false;
 	return std::unexpected(s->make_error("not a boolean literal"));
@@ -58,7 +66,7 @@ Rule<bool> boolean_literal =
 
 /* boolean_literal fix but "false" is not working */
 Rule<bool> _boolean_literal =
-    [](Source* s) -> std::expected<bool, dara::error::SynataxError> {
+    [](Source* s) -> std::expected<bool, dara::error::SyntaxError> {
 	Source backup = *s;
 	auto res_true = True(s);
 	if (!res_true) {
@@ -78,7 +86,7 @@ Rule<bool> _boolean_literal =
 };
 
 Rule<std::monostate> nil_literal =
-    [](Source* s) -> std::expected<std::monostate, dara::error::SynataxError> {
+    [](Source* s) -> std::expected<std::monostate, dara::error::SyntaxError> {
 	if (Nil(s)) return std::monostate{};
 	return std::unexpected(s->make_error("not a nil literal"));
 };
@@ -86,7 +94,7 @@ Rule<std::monostate> nil_literal =
 // boolean_literal
 /*
 Rule<std::string> _boolean_literal =
-    [](Source* s) -> std::expected<std::string, dara::error::SynataxError> {
+    [](Source* s) -> std::expected<std::string, dara::error::SyntaxError> {
     Source backup = *s;
 
     auto boolean_parser = ( True || False )(s);
@@ -105,7 +113,7 @@ Rule<std::string> _boolean_literal =
 
 // string_literal
 Rule<std::string> string_literal =
-    [](Source* s) -> std::expected<std::string, dara::error::SynataxError> {
+    [](Source* s) -> std::expected<std::string, dara::error::SyntaxError> {
 	Source backup = *s;
 
 	// auto string_parser = token(many1(letter));
@@ -126,14 +134,14 @@ Rule<std::string> string_literal =
 };
 
 Rule<int> integer_literal =
-    [](Source* s) -> std::expected<int, dara::error::SynataxError> {
+    [](Source* s) -> std::expected<int, dara::error::SyntaxError> {
 	Source backup = *s;
 
 	auto digits_parser = token(many1(digit));
 
 	return digits_parser(s).and_then(
 	    [&](const std::string& str)
-	        -> std::expected<int, dara::error::SynataxError> {
+	        -> std::expected<int, dara::error::SyntaxError> {
 		    try {
 			    int val = std::stoi(str);
 			    return val;
@@ -148,7 +156,7 @@ Rule<int> integer_literal =
 };
 
 Rule<double> double_literal =
-    [](Source* s) -> std::expected<double, dara::error::SynataxError> {
+    [](Source* s) -> std::expected<double, dara::error::SyntaxError> {
 	Source backup = *s;
 
 	// auto digits_parser = token(many1(digit));
@@ -156,7 +164,7 @@ Rule<double> double_literal =
 
 	return double_parser(s).and_then(
 	    [&](const std::string& str)
-	        -> std::expected<double, dara::error::SynataxError> {
+	        -> std::expected<double, dara::error::SyntaxError> {
 		    try {
 			    double val = std::stod(str);
 			    return val;
@@ -172,15 +180,59 @@ Rule<double> double_literal =
 
 /*
 Rule<std::string> identifier =
-    token([](Source* s) -> std::expected<std::string, dara::error::SynataxError>
+    token([](Source* s) -> std::expected<std::string, dara::error::SyntaxError>
 { return (letter + many(alphaNum))(s);
     });
 */
 
 // identifier
-Rule<std::string> identifier =
-    [](Source* s) -> std::expected<std::string, dara::error::SynataxError> {
+/*
+Rule<std::string> __identifier =
+    [](Source* s) -> std::expected<std::string, dara::error::SyntaxError> {
+    Source backup = *s;
+
+    // auto identifier_parser = token(many1(alphaNum));
+    auto identifier_parser = token(many1(letter) + many(alphaNum));
+
+    auto res = identifier_parser(s);
+    if (!res) {
+        *s = backup;
+        // return std::unexpected(res.error());
+        return std::unexpected(s->make_error("not identifier"));
+    }
+    std::string str = res.value();
+
+    return str;
+};
+*/
+
+/* identifier in lexer.cpp */
+/*
+Rule<dara::ast::Identifier> _identifier = [](Source* s)
+    -> std::expected<dara::ast::Identifier, dara::error::SyntaxError> {
+    Source backup = *s;
+    size_t start = s->get_current();
+
+    // auto identifier_parser = token(many1(alphaNum));
+    auto identifier_parser = token(many1(letter) + many(alphaNum));
+
+    auto res = identifier_parser(s);
+    if (!res) {
+        *s = backup;
+        // return std::unexpected(res.error());
+        return std::unexpected(s->make_error("not identifier"));
+    }
+    size_t end = s->get_current();
+    std::string str = res.value();
+
+    return dara::ast::Identifier{.lexeme = str,
+                                  .span = dara::core::Span{start, end}};
+};
+*/
+Rule<dara::ast::Identifier> identifier = [](Source* s)
+    -> std::expected<dara::ast::Identifier, dara::error::SyntaxError> {
 	Source backup = *s;
+	// size_t start = s->get_current();
 
 	// auto identifier_parser = token(many1(alphaNum));
 	auto identifier_parser = token(many1(letter) + many(alphaNum));
@@ -191,41 +243,64 @@ Rule<std::string> identifier =
 		// return std::unexpected(res.error());
 		return std::unexpected(s->make_error("not identifier"));
 	}
+	size_t end = s->get_current();
 	std::string str = res.value();
 
-	return str;
+	if (RESERVED_KEYWORDS.contains(str)) {
+		*s = backup;
+		return std::unexpected(
+		    s->make_error("cannot use keyword '" + str + "' as identifier"));
+	}
+
+    size_t start = end - str.length(); 
+
+	return dara::ast::Identifier{.lexeme = str,
+	                             .span = dara::core::Span{start, end}};
 };
 
 // Rule<char> sym(char ch) { return token(char1(ch)); }
 
 /* for stmt */
 Rule<std::string> keyword(const std::string& kw) {
-	return [=](Source* s)
-	           -> std::expected<std::string, dara::error::SynataxError> {
-		s->skip_whitespace();
-		Source backup = *s;
+	return
+	    [=](Source* s) -> std::expected<std::string, dara::error::SyntaxError> {
+		    s->skip_whitespace();
+		    // auto space_res = s->skip_whitespace();
+		    // if (!space_res) {
+		    //	return std::unexpected(space_res.error());
+		    // }
 
-		auto res = string1(kw)(s);
-		if (!res) {
-			*s = backup;
-			return std::unexpected(res.error());
-		}
+		    Source backup = *s;
 
-		if (!s->isEnd()) {
-			auto peek_res = s->peek();
-			if (peek_res) {
-				char next_ch = peek_res.value();
-				if (isLetter(next_ch) || isDigit(next_ch)) {
-					*s = backup;
-					return std::unexpected(
-					    s->make_error("Not a word boundary"));
-				}
-			}
-		}
-		// auto space_res = spaces(s);
-		s->skip_whitespace();
-		return res;
-	};
+		    auto res = string1(kw)(s);
+		    if (!res) {
+			    *s = backup;
+			    return std::unexpected(res.error());
+		    }
+
+		    if (!s->isEnd()) {
+			    auto peek_res = s->peek();
+			    if (peek_res) {
+				    char next_ch = peek_res.value();
+				    if (isLetter(next_ch) || isDigit(next_ch)) {
+					    *s = backup;
+					    return std::unexpected(
+					        s->make_error("Not a word boundary"));
+				    }
+			    }
+		    }
+		    // auto space_res = spaces(s);
+		    // space_res = s->skip_whitespace();
+		    // if (!space_res) {
+		    //	return std::unexpected(space_res.error());
+		    // }
+
+
+
+		    //s->skip_whitespace();
+
+		    return res;
+	    };
 }
 
 }  // namespace dara::lexer

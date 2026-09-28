@@ -2,7 +2,9 @@
 #pragma once
 
 // #include <memory>
+#include "ast.hpp"
 #include "combinator.hpp"
+#include "operator.hpp"
 
 namespace dara::lexer {
 
@@ -33,63 +35,53 @@ constexpr bool isPos(char ch) { return ch == '+'; }
 constexpr bool isNeg(char ch) { return ch == '-'; }
 constexpr bool isNot(char ch) { return ch == '!'; }
 
-inline dara::combinator::Rule<char> anyChar = dara::combinator::satisfy([](char) { return true; });
-// inline dara::combinator::Rule<char> anyChar = satisfy([](char) { return true; });
+inline dara::combinator::Rule<char> anyChar =
+    dara::combinator::satisfy([](char) { return true; });
+// inline dara::combinator::Rule<char> anyChar = satisfy([](char) { return true;
+// });
 
-inline dara::combinator::Rule<char> atEOF = dara::combinator::satisfy(isEnd) || dara::combinator::left("at EOF");
-inline dara::combinator::Rule<char> space = dara::combinator::satisfy(isSpace) || dara::combinator::left("not space");
-inline dara::combinator::Rule<char> digit = dara::combinator::satisfy(isDigit) || dara::combinator::left("not digit");
-inline dara::combinator::Rule<char> upper = dara::combinator::satisfy(isUpper) || dara::combinator::left("not upper");
-inline dara::combinator::Rule<char> lower = dara::combinator::satisfy(isLower) || dara::combinator::left("not lower");
-inline dara::combinator::Rule<char> alpha = dara::combinator::satisfy(isAlpha) || dara::combinator::left("not alpha");
-inline dara::combinator::Rule<char> alphaNum = dara::combinator::satisfy(isAlphaNum) || dara::combinator::left("not alpha or number");
-inline dara::combinator::Rule<char> letter = dara::combinator::satisfy(isLetter) || dara::combinator::left("not letter");
-inline dara::combinator::Rule<std::string> spaces = dara::combinator::many(space);
+inline dara::combinator::Rule<char> atEOF =
+    dara::combinator::satisfy(isEnd) || dara::combinator::left("at EOF");
+inline dara::combinator::Rule<char> space =
+    dara::combinator::satisfy(isSpace) || dara::combinator::left("not space");
+inline dara::combinator::Rule<char> digit =
+    dara::combinator::satisfy(isDigit) || dara::combinator::left("not digit");
+inline dara::combinator::Rule<char> upper =
+    dara::combinator::satisfy(isUpper) || dara::combinator::left("not upper");
+inline dara::combinator::Rule<char> lower =
+    dara::combinator::satisfy(isLower) || dara::combinator::left("not lower");
+inline dara::combinator::Rule<char> alpha =
+    dara::combinator::satisfy(isAlpha) || dara::combinator::left("not alpha");
+inline dara::combinator::Rule<char> alphaNum =
+    dara::combinator::satisfy(isAlphaNum) ||
+    dara::combinator::left("not alpha or number");
+inline dara::combinator::Rule<char> letter =
+    dara::combinator::satisfy(isLetter) || dara::combinator::left("not letter");
+inline dara::combinator::Rule<std::string> spaces =
+    dara::combinator::many(space);
 
-inline dara::combinator::Rule<char> Add = dara::combinator::satisfy(isAdd) || dara::combinator::left("not '+'");
-inline dara::combinator::Rule<char> Sub = dara::combinator::satisfy(isSub) || dara::combinator::left("not '-'");
-inline dara::combinator::Rule<char> Mul = dara::combinator::satisfy(isMul) || dara::combinator::left("not '*'");
-inline dara::combinator::Rule<char> Div = dara::combinator::satisfy(isDiv) || dara::combinator::left("not '/'");
-inline dara::combinator::Rule<char> Pow = dara::combinator::satisfy(isPow) || dara::combinator::left("not '^'");
+inline dara::combinator::Rule<char> Add =
+    dara::combinator::satisfy(isAdd) || dara::combinator::left("not '+'");
+inline dara::combinator::Rule<char> Sub =
+    dara::combinator::satisfy(isSub) || dara::combinator::left("not '-'");
+inline dara::combinator::Rule<char> Mul =
+    dara::combinator::satisfy(isMul) || dara::combinator::left("not '*'");
+inline dara::combinator::Rule<char> Div =
+    dara::combinator::satisfy(isDiv) || dara::combinator::left("not '/'");
+inline dara::combinator::Rule<char> Pow =
+    dara::combinator::satisfy(isPow) || dara::combinator::left("not '^'");
 
 //
-// inline dara::combinator::Rule<char> Assign = satisfy(isAssign) || left("not '='");
+// inline dara::combinator::Rule<char> Assign = satisfy(isAssign) || left("not
+// '='");
 
-inline dara::combinator::Rule<char> Pos = dara::combinator::satisfy(isPos) || dara::combinator::left("not '+'");
-inline dara::combinator::Rule<char> Neg = dara::combinator::satisfy(isNeg) || dara::combinator::left("not '-'");
-inline dara::combinator::Rule<char> Not = dara::combinator::satisfy(isNeg) || dara::combinator::left("not '!'");
+inline dara::combinator::Rule<char> Pos =
+    dara::combinator::satisfy(isPos) || dara::combinator::left("not '+'");
+inline dara::combinator::Rule<char> Neg =
+    dara::combinator::satisfy(isNeg) || dara::combinator::left("not '-'");
+inline dara::combinator::Rule<char> Not =
+    dara::combinator::satisfy(isNeg) || dara::combinator::left("not '!'");
 
-// enum class InfixOperator { Add, Sub, Mul, Div, Assign, Pow };
-enum class InfixOperator {
-	Add,
-	Sub,
-	Mul,
-	Div,
-	Assign,
-	Pow,
-	Less,
-	Greater,
-	EqualEqual,
-	StrictEqual,
-	LessEqual,
-	GreaterEqual,
-	NotEqual,
-	And,
-	Or,
-	Is,
-	Range
-};
-// enum class PrefixOperator { Neg, Pos, Not, Inc, Dec };
-enum class PrefixOperator { Neg, Pos, Not };
-// enum class PrefixOperator { Neg, Pos, Not, Function };
-// enum class PostfixOperator { Inc, Dec, Fac };
-enum class PostfixOperator { Fac };
-enum class LogicalOperator { And, Or };
-
-// enum class MixOperator { Function, Array, Class };
-
-enum class MixfixOperator { Call, Index, Property };
-//enum class dara::lexer::MixfixOperator { Call, Index, Property }; // (***)
 
 bool isChar(char ch, char c);
 bool isNotChar(char ch, char c);
@@ -105,28 +97,42 @@ dara::combinator::Rule<T> token(const dara::combinator::Rule<T>& p) {
 }
 */
 
+using namespace dara::core;
+
 template <typename T>
 dara::combinator::Rule<T> token(const dara::combinator::Rule<T>& p) {
-	return [=](Source* s) -> std::expected<T, dara::error::SynataxError> {
+	return [=](Source* s) -> std::expected<T, dara::error::SyntaxError> {
 		s->skip_whitespace();
+		// auto space_res = s->skip_whitespace();
+		// if (!space_res) {
+		//	return std::unexpected(space_res.error());
+		// }
 
 		auto res = p(s);
 
 		if (res) {
-			s->skip_whitespace();
+			//s->skip_whitespace();
+
+			// auto space_res = s->skip_whitespace();
+			// if (!space_res) {
+			//	return std::unexpected(space_res.error());
+			// }
+		} else {
 		}
-        return res;
+		return res;
 	};
 }
 
-inline dara::combinator::Rule<char> Assign = sym('=') || dara::combinator::left("not '='");
+inline dara::combinator::Rule<char> Assign =
+    sym('=') || dara::combinator::left("not '='");
 extern dara::combinator::Rule<int> integer_literal;
 extern dara::combinator::Rule<double> double_literal;
 extern dara::combinator::Rule<std::string> string_literal;
 // extern dara::combinator::Rule<std::string> boolean_literal;
 extern dara::combinator::Rule<bool> boolean_literal;
 extern dara::combinator::Rule<std::monostate> nil_literal;
-extern dara::combinator::Rule<std::string> identifier;
+//extern dara::combinator::Rule<std::string> identifier;
+extern dara::combinator::Rule<dara::ast::Identifier> identifier;
 
 /* for stmt */
 dara::combinator::Rule<std::string> keyword(const std::string& kw);
@@ -187,4 +193,4 @@ inline dara::combinator::Rule<char> SQuote = sym('\'');
 // inline dara::combinator::Rule<std::string> Functtion = sym("fn"); //(2)
 
 // inline dara::combinator::Rule<std::string> Identifier;
-}
+}  // namespace dara::lexer

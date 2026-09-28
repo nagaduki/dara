@@ -11,21 +11,23 @@ namespace dara::backend {
 
 using namespace dara::ast;
 
-// Instance.get
+// get in Instance.cpp //
 Result<Value> Instance::get(Interpreter& interpreter, const std::string& name) {
-	if (fields.contains(name)) {
+	// if (this->fields.contains(name)) {
+	if (this->fields.contains(name)) {
 		return fields.at(name);
 	}
 
-    Value method_val = cls->find_method(name);
+	// Value method_val = this->cls->find_method(name);
+	Value method_val = this->cls->find_method(name);
 
-	//if (cls->methods.contains(name)) {
-	//if (auto method_opt = cls->find_method(name)) {
+	// if (cls->methods.contains(name)) {
+	// if (auto method_opt = cls->find_method(name)) {
 
 	if (!std::holds_alternative<std::monostate>(method_val.data)) {
 		// user function
-		//auto method_val = cls->methods.at(name);
-		//auto method_val = method_opt.value();
+		// auto method_val = cls->methods.at(name);
+		// auto method_val = method_opt.value();
 
 		// builtin function
 		// auto callable =
@@ -40,7 +42,8 @@ Result<Value> Instance::get(Interpreter& interpreter, const std::string& name) {
 			if (auto function =
 			        std::dynamic_pointer_cast<dara::backend::Function>(
 			            *callable_ptr)) {
-				auto bound_method = function->bind(interpreter, shared_from_this());  //(*)
+				auto bound_method =
+				    function->bind(interpreter, shared_from_this());  //(*)
 
 				return Value{std::static_pointer_cast<dara::backend::Callable>(
 				    bound_method)};
@@ -48,10 +51,10 @@ Result<Value> Instance::get(Interpreter& interpreter, const std::string& name) {
 
 			// builtin function
 			auto receiver = shared_from_this();
-			auto bound_closure = [receiver, callable](
-			                         dara::backend::Interpreter& interpreter,
-			                         const std::vector<Value>& arguments)
-			    -> Result<Value> {
+			auto bound_closure =
+			    [receiver, callable](
+			        dara::backend::Interpreter& interpreter,
+			        const std::vector<Value>& arguments) -> Result<Value> {
 				std::vector<Value> args_with_this;
 				args_with_this.push_back(Value{.data = receiver});
 				for (const auto& arg : arguments) {
@@ -60,11 +63,12 @@ Result<Value> Instance::get(Interpreter& interpreter, const std::string& name) {
 				return callable->call(interpreter, args_with_this);
 			};
 			size_t new_arity =
-			    (callable->arity() > 0) ? callable->arity() - 1 : 0; //(***)
+			    (callable->arity() > 0) ? callable->arity() - 1 : 0;  //(***)
 			auto bound_method = std::make_shared<dara::backend::LambdaCallable>(
 			    new_arity, std::move(bound_closure));
-			//return Value{.data = bound_method};
-			return Value{std::static_pointer_cast<dara::backend::Callable>(bound_method)};
+			// return Value{.data = bound_method};
+			return Value{std::static_pointer_cast<dara::backend::Callable>(
+			    bound_method)};
 		}
 	}
 
@@ -83,21 +87,21 @@ std::vector<std::string> Instance::get_property_names() const {
 		names.push_back(name);
 	}
 
-    // method
+	// method
 	if (this->cls) {
 		for (const auto& [name, _] : this->cls->methods) {
 			names.push_back(name + "()");
 		}
 	}
 
-    /* 
-    // static
+	/*
+	// static
 	if (this->cls) {
-		for (const auto& [name, _] : this->cls->static_methods) {
-			names.push_back(name + "()");
-		}
+	    for (const auto& [name, _] : this->cls->static_methods) {
+	        names.push_back(name + "()");
+	    }
 	}
-    */
+	*/
 
 	return names;
 }

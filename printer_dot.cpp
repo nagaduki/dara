@@ -5,6 +5,7 @@
 #include <variant>
 
 #include "ast.hpp"
+#include "lexer.hpp"
 #include "printer.hpp"
 
 using namespace dara::lexer;
@@ -148,7 +149,7 @@ std::string DotPrinter::visit_decl(const Decl* decl) {
 			                call_expr.callee->value)) {
 				        auto& var_expr =
 				            std::get<VarExpr>(call_expr.callee->value);
-				        if (var_expr.name == "require") {
+				        if (var_expr.name.lexeme == "require") {
 					        is_require = true;
 					        if (!call_expr.arguments.empty() &&
 					            std::holds_alternative<StringExpr>(
@@ -165,14 +166,14 @@ std::string DotPrinter::visit_decl(const Decl* decl) {
 			        this->out << std::format(
 			                         "node_{} [label=\"Module({})\", "
 			                         "shape=component];",
-			                         id, vd.name)
+			                         id, vd.name.lexeme)
 			                  << std::endl;
 			        return id;
 		        } else {
 			        this->out << std::format(
 			                         "node_{} [label=\"VarDecl({})\", "
 			                         "shape=invhouse];",
-			                         id, vd.name)
+			                         id, vd.name.lexeme)
 			                  << std::endl;
 		        }
 		        std::string child_id = this->visit_expr(vd.initializer.get());
@@ -185,7 +186,7 @@ std::string DotPrinter::visit_decl(const Decl* decl) {
 		        this->out
 		            << std::format(
 		                   "node_{} [label=\"ClassDecl({})\", shape=invhouse];",
-		                   id, cd.name, id)
+		                   id, cd.name.lexeme, id)
 		            << std::endl;
 		        if (cd.super) {
 			        std::string super_id = this->visit_expr(cd.super.get());
@@ -200,7 +201,7 @@ std::string DotPrinter::visit_decl(const Decl* decl) {
 			        this->out
 			            << std::format(
 			                   "node_{}->node_{} [label=\"method({}))\"];", id,
-			                   method_id, cd.methods[i].name)
+			                   method_id, cd.methods[i].name.lexeme)
 			            << std::endl;
 		        }
 		        return id;
@@ -258,7 +259,7 @@ std::string DotPrinter::print(const Decl* decl) {
 	        [this](const VarDecl& vd) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"VarDecl({})\"];", id,
-		                                 vd.name)
+		                                 vd.name.lexeme)
 		                  << std::endl;
 		        std::string child_id = this->visit_expr(vd.initializer.get());
 		        this->out << std::format("node_{}->node_{};", id, child_id)
@@ -513,7 +514,7 @@ std::string DotPrinter::visit_stmt(const Stmt* stmt) {
 		        this->out << std::format("node_{}->node_{};", id, var_id)
 		                  << std::endl;
 		        this->out << std::format("node_{} [label=\"loop var: {}\"];",
-		                                 var_id, ws.loop_variable)
+		                                 var_id, ws.loop_variable.lexeme)
 		                  << std::endl;
 		        std::string body_id = this->visit_stmt(ws.body.get());
 		        this->out << std::format("node_{}->node_{} [label=\"body\"];",
@@ -534,7 +535,7 @@ std::string DotPrinter::visit_stmt(const Stmt* stmt) {
 	        [this](const AssignStmt& as) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format("node_{} [label=\"AssignStmt({})\"];",
-		                                 id, as.name)
+		                                 id, as.name.lexeme)
 		                  << std::endl;
 		        std::string child_id = this->visit_expr(as.value.get());
 		        this->out << std::format("node_{}->node_{};", id, child_id)
@@ -559,7 +560,7 @@ std::string DotPrinter::visit_stmt(const Stmt* stmt) {
 		        std::string child_id = this->next_node_id();
 		        this->out << std::format(
 		            "node_{} [label=\"var: {}\", shape=house];", child_id,
-		            es.name);
+		            es.name.lexeme);
 		        this->out << std::format("node_{}->node_{};", id, child_id)
 		                  << std::endl;
 		        return id;
@@ -571,7 +572,7 @@ std::string DotPrinter::visit_stmt(const Stmt* stmt) {
 		        std::string child_id = this->next_node_id();
 		        this->out << std::format(
 		            "node_{} [label=\"var: {}\", shape=house];", child_id,
-		            es.name);
+		            es.name.lexeme);
 		        this->out << std::format("node_{}->node_{};", id, child_id)
 		                  << std::endl;
 		        return id;
@@ -604,7 +605,7 @@ std::string DotPrinter::visit_stmt(const Stmt* stmt) {
 		        std::string name_id = this->next_node_id();
 		        this->out << std::format(
 		                         "node_{} [label=\"var: {}\" shape=house];",
-		                         name_id, stmt.name)
+		                         name_id, stmt.name.lexeme)
 		                  << std::endl;
 		        this->out << std::format("node_{}->node_{} [label=\"target\"];",
 		                                 id, name_id)
@@ -623,7 +624,7 @@ std::string DotPrinter::visit_stmt(const Stmt* stmt) {
 		        this->out
 		            << std::format(
 		                   "node_{} [label=\"SetStmt( .{} )\", shape=box];", id,
-		                   ss.name)
+		                   ss.name.lexeme)
 		            << std::endl;
 
 		        // 1. object（左辺のドットの前。 p や this など）への矢印
@@ -672,7 +673,7 @@ std::string DotPrinter::visit_stmt(const Stmt* stmt) {
 
 		        this->out << std::format(
 		                         "node_{} [label=\".{} {}\", shape=box];", id,
-		                         stmt.name, op_str)
+		                         stmt.name.lexeme, op_str)
 		                  << std::endl;
 		        // object
 		        std::string obj_id = this->visit_expr(stmt.object.get());
@@ -744,7 +745,7 @@ std::string DotPrinter::visit_expr(const Expr* expr) {
 		        std::string id = this->next_node_id();
 		        this->out << std::format(
 		                         "node_{} [label=\"var: {}\", shape=house];",
-		                         id, expr.name)
+		                         id, expr.name.lexeme)
 		                  << std::endl;
 		        return id;
 	        },
@@ -752,7 +753,7 @@ std::string DotPrinter::visit_expr(const Expr* expr) {
 		        std::string id = this->next_node_id();
 		        std::string params_str = "";
 		        for (size_t i = 0; i < expr.parameters.size(); ++i) {
-			        params_str += expr.parameters[i];
+			        params_str += expr.parameters[i].lexeme;
 			        if (i < expr.parameters.size() - 1) {
 				        params_str += ",";
 			        }
@@ -792,7 +793,7 @@ std::string DotPrinter::visit_expr(const Expr* expr) {
 		        std::string id = this->next_node_id();
 		        if (std::holds_alternative<VarExpr>(expr.callee->value)) {
 			        auto& var_expr = std::get<VarExpr>(expr.callee->value);
-			        if (var_expr.name == "require") {
+			        if (var_expr.name.lexeme == "require") {
 				        this->out << std::format(
 				                         "node_{} [label=\"CallExpr\", "
 				                         "shape=house];",
@@ -918,7 +919,7 @@ std::string DotPrinter::visit_expr(const Expr* expr) {
 		        this->out
 		            << std::format(
 		                   "node_{} [label=\"GetExpr( .{} )\", shape=box];", id,
-		                   ge.name)
+		                   ge.name.lexeme)
 		            << std::endl;
 		        if (ge.object) {
 			        std::string object_id = this->visit_expr(ge.object.get());
