@@ -3,6 +3,7 @@
 // #pragma once
 #include "interpreter.hpp"
 
+#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -63,7 +64,7 @@ Result<Value> Interpreter::load_module(const std::string& path) {
 		return Value{.data = this->module_cache.at(path)};  // (A)
 	}
 
-	std::ifstream file(path);  // (*)
+	std::ifstream file(path);  
 	if (!file.is_open()) {
 		return std::unexpected(dara::error::InterpreterError(
 		    "Could not open module file: " + path));
@@ -72,8 +73,14 @@ Result<Value> Interpreter::load_module(const std::string& path) {
 	buffer << file.rdbuf();
 	std::string source_code = buffer.str();
 
+    /*
 	Source s(source_code.c_str());
 	dara::frontend::Parser p(&s);
+    */
+
+    uint16_t file_id = this->source_manager.load_file(path, source_code);
+    dara::core::Source* s = this->source_manager.get_source(file_id);
+    dara::frontend::Parser p(s);
 
 	auto program_res = p.program();
 	if (!program_res) {
@@ -81,6 +88,8 @@ Result<Value> Interpreter::load_module(const std::string& path) {
 		    dara::error::InterpreterError("syntax error in module '" + path +
 		                                  "': " + program_res.error().message));
 	}
+
+
 	// dara::Program program = std::move(program_res.value());
 	this->module_asts.push_back(std::move(program_res.value()));
 	const dara::ast::Program& program = this->module_asts.back();

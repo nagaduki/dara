@@ -59,7 +59,7 @@ Parser::var_decl() {
 	*/
 
 	if (!Semicolon(this->s)) {
-		PRINT_LINE();
+		//PRINT_LINE();
 		return std::unexpected(this->s->make_error(
 		    "expected ';' at the end of let statement."));  //(*)
 	}

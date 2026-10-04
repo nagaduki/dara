@@ -3,8 +3,10 @@
 #include <expected>
 #include <optional>
 // #include <sstream>
+#include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "error.hpp"
 #include "span.hpp"
@@ -13,8 +15,17 @@ namespace dara::core {
 
 class Source {
 	// const char* s;
-	std::string_view data;
+   public:
+	/*
+	const std::string_view data;
+	const std::string name;
 	size_t position = 0;
+	const uint16_t id = 0;
+	*/
+	std::string_view data;
+	std::string name;
+	size_t position = 0;
+	uint16_t id = 0;
 
    private:
 	void skip_line_comment() {
@@ -76,6 +87,9 @@ class Source {
 	// Source(const char* s) : s(s), line(1), col(1), data(s), position(0)
 	// {} Source(const char* s) : line(1), col(1), data(s), position(0) {}
 	Source(const char* s) : data(s), position(0) {}
+	Source(const std::string& code, const std::string& filename,
+	       uint16_t file_id)
+	    : data(code), name(filename), id(file_id) {}
 
 	/*
 	std::expected<char, dara::error::SyntaxError> peek() {
@@ -124,6 +138,8 @@ class Source {
 		//++(this->col);
 		//++(this->position);
 	}
+
+	uint16_t get_id() { return this->id; }
 
 	/* (***) */
 	dara::error::SyntaxError make_error(const std::string& msg,
@@ -252,7 +268,8 @@ class Source {
 		for (size_t i = 0; i <= this->data.length(); i++) {
 			if (i == this->data.length() || this->data[i] == '\n') {
 				if (current_line == target_line) {
-					return std::string(this->data.substr(line_start, i-line_start)); 
+					return std::string(
+					    this->data.substr(line_start, i - line_start));
 				}
 				current_line++;
 				line_start = i + 1;
@@ -331,6 +348,45 @@ class Source {
 	        }
 	    }
 	    return {};
+	}
+	*/
+};
+
+class SourceManager {
+   private:
+	std::vector<std::unique_ptr<Source>> sources;
+	//uint16_t id;
+
+   public:
+	uint16_t load_file(const std::string& filename, const std::string& code) {
+		//
+		const uint16_t id = static_cast<uint16_t>(sources.size());
+		auto source = std::make_unique<Source>(code, filename, id);
+		//auto source = std::make_unique<Source>(
+		//    Source{.data = code, .name = filename, .id = id});
+		// source->id = id;
+
+		sources.push_back(std::move(source));
+		//this->id = id;  //
+		return id;
+	}
+
+	Source* get_source(uint16_t file_id) const {
+		for (const auto& source : this->sources) {
+			if (source->id == file_id) {
+				return source.get();
+			}
+		}
+		return nullptr;
+	}
+	/*
+	Source* get_source(uint16_t file_id) const {
+	    for (const auto& source : this->sources) {
+	        if (source->id == file_id) {
+	            return source.get();
+	        }
+	    }
+	    return 0;
 	}
 	*/
 };

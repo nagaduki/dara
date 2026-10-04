@@ -303,16 +303,17 @@ std::expected<Value, dara::error::InterpreterError> BuiltinIs_Proper::call(
 
 std::expected<Value, dara::error::InterpreterError> BuiltinRequire::call(
     Interpreter& interpreter, const std::vector<Value>& arguments) {
-	if (!std::holds_alternative<String>(arguments[0].data)) { //(*)
+	if (!std::holds_alternative<String>(arguments[0].data)) {  //(*)
 		return std::unexpected(
 		    dara::error::InterpreterError("require() expects a string path"));
 	}
-    const String& pmr_path = std::get<String>(arguments[0].data);
-    std::string req_path_str(pmr_path.c_str());
+	const String& pmr_path = std::get<String>(arguments[0].data);
+	std::string req_path_str(pmr_path.c_str());
 
 	// std::string path = std::get<std::string>(arguments[0].data);
-	//std::string req_path_str = std::get<std::string>(arguments[0].data);
-    //std::string req_path_str = std::get<std::string>(arguments[0].data);//(**)
+	// std::string req_path_str = std::get<std::string>(arguments[0].data);
+	// std::string req_path_str =
+	// std::get<std::string>(arguments[0].data);//(**)
 	std::filesystem::path target_path(req_path_str);
 
 	if (!target_path.is_absolute() && !interpreter.dir_stack.empty()) {
@@ -332,8 +333,8 @@ std::expected<Value, dara::error::InterpreterError> BuiltinRequire::call(
 	//           << std::endl;
 
 	if (ec) {
-		return std::unexpected(
-		    dara::error::InterpreterError("Invalid path: " + req_path_str)); //(*)
+		return std::unexpected(dara::error::InterpreterError(
+		    "Invalid path: " + req_path_str));  //(*)
 	}
 
 	return interpreter.load_module(target_path.string());

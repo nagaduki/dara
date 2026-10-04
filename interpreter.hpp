@@ -40,6 +40,7 @@ class Interpreter {
 	    module_cache;
 	std::vector<dara::ast::Program> module_asts;
 	std::vector<std::filesystem::path> dir_stack;
+    dara::core::SourceManager source_manager;
 	dara::ast::Result<Value> load_module(const std::string& path);
 	dara::ast::Result<Value> eval(const dara::ast::Expr* expr) {
 		return visit_expr(expr);
@@ -110,6 +111,8 @@ class Interpreter {
 	std::shared_ptr<Environment> get_environment() { return this->env; }
 
 	void set_environment(std::shared_ptr<Environment> env) { this->env = env; }
+	
+    uint16_t get_id() { return this->id; } //(***)
 
 	bool is_truthy(const Value& val);
 
@@ -124,6 +127,7 @@ class Interpreter {
 	// std::shared_ptr<Environment> env = globals;
 	std::shared_ptr<Environment> env;
 	std::vector<std::shared_ptr<Environment>> module_envs;
+    uint16_t id; //(****)
 
 	dara::ast::Result<void> execute_for_iteration(const std::string& var_name,
 	                                              const Value& val,

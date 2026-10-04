@@ -579,6 +579,7 @@ Parser::call_expr(std::unique_ptr<Expr> callee) {
 		size_t end = s->get_current();
 		auto call_res = std::make_unique<Expr>();
 		call_res->value = CallExpr{std::move(callee), std::move(arguments)};
+		//call_res->span = Span{start, end, this->s->get_id()};
 		call_res->span = Span{start, end};
 		return call_res;
 	}

@@ -107,7 +107,7 @@ Parser::assign_stmt(std::unique_ptr<Expr> lhs) {
 
 	if (!Assign(this->s)) {
 		return std::unexpected(
-		    s->make_error("not 'let' at the beginning of assign statement"));
+		    s->make_error("not '=' at the beginning of assign statement"));
 	}
 
 	auto rhs_res = this->expr();
@@ -327,11 +327,11 @@ Parser::if_stmt() {
 	//  int line = this->s->line;
 	//  int col = this->s->col;
 
-	if (!Print(this->s)) {
+	if (!If(this->s)) {
 		// PRINT_LINE();
 		//*(this->s) = backup;
 		return std::unexpected(
-		    s->make_error("not 'if' at the beginning of print statement"));
+		    s->make_error("not 'if' at the beginning of if statement"));
 	}
 
 	auto condition_res = this->expr();
@@ -367,7 +367,7 @@ Parser::while_stmt() {
 
 	if (!While(this->s)) {
 		return std::unexpected(
-		    s->make_error("not 'while' at the beginning of print statement"));
+		    s->make_error("not 'while' at the beginning of while statement"));
 	}
 
 	auto condition_res = this->expr();
@@ -396,7 +396,7 @@ Parser::forin_stmt() {
 
 	if (!For(this->s)) {
 		return std::unexpected(
-		    s->make_error("not 'for' at the beginning of print statement"));
+		    s->make_error("not 'for' at the beginning of for statement"));
 	}
 
 	if (!LParen(this->s)) {
@@ -681,6 +681,11 @@ std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError> Parser::stmt() {
 		return this->return_stmt();
 	}
 
+	if (Break(this->s)) {
+		*(this->s) = backup;
+	    return this->break_stmt();
+	}
+
 	if (Continue(this->s)) {
 		*(this->s) = backup;
 		return this->continue_stmt();
@@ -693,6 +698,7 @@ std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError> Parser::stmt() {
 
 	auto expr = std::move(expr_res.value());  //(***)
 
+    Source backup_after_expr = *(this->s);
 	/*
 	// i++
 	auto post_inc = Inc(this->s);
@@ -708,12 +714,13 @@ std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError> Parser::stmt() {
 	*/
 
 	if (Inc(this->s)) {
-		*(this->s) = backup;
+		*(this->s) = backup_after_expr;
 		return this->inc_stmt(std::move(expr));
 	}
 
 	if (Dec(this->s)) {
-		*(this->s) = backup;
+		//*(this->s) = backup;
+		*(this->s) = backup_after_expr;
 		return this->dec_stmt(std::move(expr));
 	}
 
@@ -748,17 +755,20 @@ std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError> Parser::stmt() {
 	*/
 
 	if (Assign(this->s)) {
-		*(this->s) = backup;
+		//*(this->s) = backup;
+		*(this->s) = backup_after_expr;
 		return this->assign_stmt(std::move(expr));
 	}
 
 	if (AddAssign(this->s)) {
-		*(this->s) = backup;
+		//*(this->s) = backup;
+		*(this->s) = backup_after_expr;
 		return this->compound_assign_stmt(std::move(expr), InfixOperator::Add);
 	}
 
 	if (SubAssign(this->s)) {
-		*(this->s) = backup;
+		//*(this->s) = backup;
+		*(this->s) = backup_after_expr;
 		return this->compound_assign_stmt(std::move(expr), InfixOperator::Sub);
 	}
 

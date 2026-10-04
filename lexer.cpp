@@ -1,4 +1,4 @@
-/* liexer.cpp */
+/* lexer.cpp */
 
 #include "lexer.hpp"
 // #include "ast.hpp"
@@ -120,7 +120,9 @@ Rule<std::string> string_literal =
 	// auto string_parser = token(DQuote + many1(letter) + DQuote );
 	// auto string_parser = token(DQuote + many1(anyBut('"')) + DQuote );
 	// auto string_parser = token(DQuote >> many1(anyBut('"')) << DQuote);
-	auto string_parser = token(char1('"') >> many1(anyBut('"')) << char1('"'));
+//
+	//auto string_parser = token(char1('"') >> many1(anyBut('"')) << char1('"'));
+	auto string_parser = token(char1('"') >> many(anyBut('"')) << char1('"'));
 
 	auto res = string_parser(s);
 	if (!res) {
@@ -255,7 +257,7 @@ Rule<dara::ast::Identifier> identifier = [](Source* s)
     size_t start = end - str.length(); 
 
 	return dara::ast::Identifier{.lexeme = str,
-	                             .span = dara::core::Span{start, end}};
+	                             .span = dara::core::Span{.start=start, .end=end, .id=s->get_id()}};
 };
 
 // Rule<char> sym(char ch) { return token(char1(ch)); }
@@ -282,7 +284,8 @@ Rule<std::string> keyword(const std::string& kw) {
 			    auto peek_res = s->peek();
 			    if (peek_res) {
 				    char next_ch = peek_res.value();
-				    if (isLetter(next_ch) || isDigit(next_ch)) {
+				    //if (isLetter(next_ch) || isDigit(next_ch)) {
+				    if (isLetter(next_ch) || isDigit(next_ch) || next_ch == '_') {
 					    *s = backup;
 					    return std::unexpected(
 					        s->make_error("Not a word boundary"));
