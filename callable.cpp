@@ -21,7 +21,8 @@ Result<Value> Function::call(Interpreter& interpreter,
 	    this->closure);
 
 	for (size_t i = 0; i < declaration->parameters.size(); ++i) {
-		local_env->define(declaration->parameters[i].lexeme, arguments[i]);
+		//local_env->define(declaration->parameters[i].lexeme, arguments[i]);
+		local_env->define(declaration->parameters[i].lexeme, interpreter.ensure_value_semantics(arguments[i]));
 	}
 
 	std::shared_ptr<Environment> previous_env = interpreter.get_environment();
@@ -32,10 +33,10 @@ Result<Value> Function::call(Interpreter& interpreter,
 		/* (loop) */
 		for (const auto& stmt : declaration->body) {
 			auto res = interpreter.exec(stmt.get());
-			//
+			
 			if (!res) {
 				interpreter.set_environment(previous_env);
-				return std::unexpected(res.error());  //(*)
+				return std::unexpected(res.error());  
 			}
 		}
 
@@ -55,7 +56,7 @@ std::shared_ptr<Function> Function::bind(
 	auto env = std::allocate_shared<Environment>(interpreter.get_allocator(),
 	                                             interpreter.get_allocator(),
 	                                             this->closure);
-	env->define("this", Value{instance});
+	env->define("this", Value{instance}); // 
 	return std::allocate_shared<Function>(interpreter.get_allocator(),
 	                                      this->declaration, env);
 }

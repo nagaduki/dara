@@ -290,8 +290,9 @@ Parser::class_decl() {
 
 		FunctionDepthGuard guard(this->function_depth, this->loop_depth);
 
-		//  1. 実績のある brace_stmt() に '{ ... }' のパースを丸投げする
-		auto block_res = this->brace_stmt();
+		//  1. 実績のある block_stmt() に '{ ... }' のパースを丸投げする
+		//auto block_res = this->brace_stmt();
+		auto block_res = this->block_stmt();
 		if (!block_res) {
 			return std::unexpected(block_res.error());
 		}

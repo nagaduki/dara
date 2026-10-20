@@ -111,28 +111,56 @@ Rule<std::string> _boolean_literal =
 };
 */
 
-// string_literal
-Rule<std::string> string_literal =
+
+// char_literal
+/*
+Rule<char> char_literal =
     [](Source* s) -> std::expected<std::string, dara::error::SyntaxError> {
+    Source backup = *s;
+
+    //auto string_parser = token(char1('"') >> many1(anyBut('"')) <<
+char1('"')); auto char_parser = token(char1('\'') >> many(anyBut('"')) <<
+char1('\''));
+
+    auto res = char_parser(s);
+    if (!res) {
+        *s = backup;
+        return std::unexpected(s->make_error("not letters"));
+    }
+    char c = res.value();
+
+    return c;
+};
+*/
+
+Rule<char> escape_char = char1('\\') >>
+                             ((char1('n') |
+                               [](char) { return '\n'; }) ||  // (***)
+                              (char1('t') | [](char) { return '\t'; }) ||
+                              (char1('r') | [](char) { return '\r'; }) ||
+                              (char1('\\') | [](char) { return '\\'; }) ||
+                              (char1('\'') | [](char) { return '\''; }) ||
+                              (char1('"') | [](char) { return '"'; })) ||
+                         left("invalid escape sequence");
+
+Rule<char> normal_char_for_char_type =
+    satisfy([](char ch) { return ch != '\'' && ch != '\\'; });
+
+Rule<char> single_char = escape_char || normal_char_for_char_type;
+
+Rule<char> char_literal =
+    [](Source* s) -> std::expected<char, dara::error::SyntaxError> {
 	Source backup = *s;
 
-	// auto string_parser = token(many1(letter));
-	// auto string_parser = token(DQuote + many1(letter) + DQuote );
-	// auto string_parser = token(DQuote + many1(anyBut('"')) + DQuote );
-	// auto string_parser = token(DQuote >> many1(anyBut('"')) << DQuote);
-//
-	//auto string_parser = token(char1('"') >> many1(anyBut('"')) << char1('"'));
-	auto string_parser = token(char1('"') >> many(anyBut('"')) << char1('"'));
+	auto char_parser = token(char1('\'') >> single_char << char1('\''));
 
-	auto res = string_parser(s);
+	auto res = char_parser(s);
 	if (!res) {
 		*s = backup;
-		// return std::unexpected(res.error());
-		return std::unexpected(s->make_error("not letters"));
+		return std::unexpected(
+		    s->make_error("expected char literal (e.g. 'a' or '\\n')"));
 	}
-	std::string str = res.value();
-
-	return str;
+	return res.value();
 };
 
 Rule<int> integer_literal =
@@ -156,6 +184,40 @@ Rule<int> integer_literal =
 		    }
 	    });
 };
+
+Rule<char> normal_char_for_string_type =
+    satisfy([](char ch) { return ch != '"' && ch != '\\'; });
+Rule<char> string_char = escape_char || normal_char_for_string_type;
+
+// string_literal
+Rule<std::string> string_literal =
+    [](Source* s) -> std::expected<std::string, dara::error::SyntaxError> {
+	Source backup = *s;
+
+	// auto string_parser = token(many1(letter));
+	// auto string_parser = token(DQuote + many1(letter) + DQuote );
+	// auto string_parser = token(DQuote + many1(anyBut('"')) + DQuote );
+	// auto string_parser = token(DQuote >> many1(anyBut('"')) << DQuote);
+	//
+	// auto string_parser = token(char1('"') >> many1(anyBut('"')) <<
+	// char1('"'));
+	//auto string_parser = token(char1('"') >> many(anyBut('"')) << char1('"'));
+	auto string_parser = token(char1('"') >> many(string_char) << char1('"'));
+
+	auto res = string_parser(s);
+	if (!res) {
+		*s = backup;
+		// return std::unexpected(res.error());
+		//return std::unexpected(s->make_error("not letters"));
+		return std::unexpected(s->make_error("expected string literal"));
+	}
+	//std::string str = res.value();
+
+	return res.value();
+};
+
+
+
 
 Rule<double> double_literal =
     [](Source* s) -> std::expected<double, dara::error::SyntaxError> {
@@ -254,10 +316,12 @@ Rule<dara::ast::Identifier> identifier = [](Source* s)
 		    s->make_error("cannot use keyword '" + str + "' as identifier"));
 	}
 
-    size_t start = end - str.length(); 
+	size_t start = end - str.length();
 
-	return dara::ast::Identifier{.lexeme = str,
-	                             .span = dara::core::Span{.start=start, .end=end, .id=s->get_id()}};
+	return dara::ast::Identifier{
+	    .lexeme = str,
+	    .span =
+	        dara::core::Span{.start = start, .end = end, .id = s->get_id()}};
 };
 
 // Rule<char> sym(char ch) { return token(char1(ch)); }
@@ -284,8 +348,9 @@ Rule<std::string> keyword(const std::string& kw) {
 			    auto peek_res = s->peek();
 			    if (peek_res) {
 				    char next_ch = peek_res.value();
-				    //if (isLetter(next_ch) || isDigit(next_ch)) {
-				    if (isLetter(next_ch) || isDigit(next_ch) || next_ch == '_') {
+				    // if (isLetter(next_ch) || isDigit(next_ch)) {
+				    if (isLetter(next_ch) || isDigit(next_ch) ||
+				        next_ch == '_') {
 					    *s = backup;
 					    return std::unexpected(
 					        s->make_error("Not a word boundary"));
@@ -298,9 +363,7 @@ Rule<std::string> keyword(const std::string& kw) {
 		    //	return std::unexpected(space_res.error());
 		    // }
 
-
-
-		    //s->skip_whitespace();
+		    // s->skip_whitespace();
 
 		    return res;
 	    };

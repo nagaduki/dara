@@ -29,9 +29,16 @@ void run_file(const char* file_path) {
 	buffer << file.rdbuf();
 	std::string source_code = buffer.str();
 
-	Source s(source_code.c_str());
-	dara::frontend::Parser p(&s);
 	dara::backend::Interpreter interpreter;
+	uint16_t file_id =
+	    interpreter.source_manager.load_file(file_path, source_code);
+	Source* s = interpreter.source_manager.get_source(file_id);
+
+	// Source s(source_code.c_str()); //(***)
+	// Source s(source_code.c_str(), std::string(file_path), 0);
+	dara::frontend::Parser p(s);
+	// dara::frontend::Parser p(&s);
+	// dara::backend::Interpreter interpreter;
 	interpreter.dir_stack.push_back(
 	    std::filesystem::absolute(file_path).parent_path());
 
@@ -39,8 +46,9 @@ void run_file(const char* file_path) {
 		auto program_res = p.program();
 		if (!program_res) {
 			// std::cerr << "syntax error: " << program_res.error().message
-			std::cerr << "syntax error: " << program_res.error().to_string(s)
-			          << "\n";
+			// std::cerr << "syntax error: " <<
+			// program_res.error().to_string(*s)
+			std::cerr << program_res.error().to_string(*s) << "\n";
 			return;
 		} else {
 			std::cout << "syntax ok: " << file_path << std::endl;
@@ -66,14 +74,17 @@ void run_file(const char* file_path) {
 			auto val = interpreter.exec(decl.get());
 			if (!val) {
 				// std::cerr << "Interpreter Error: " << val.error().message
-				//std::cerr << "Interpreter Error: " << val.error().to_string(s)
-				std::cerr << val.error().to_string(s)
-				          << "\n";
+				// std::cerr << "Interpreter Error: " <<
+				// val.error().to_string(s)
+				uint16_t err_id = val.error().span.id;
+				Source* err_source =
+				    interpreter.source_manager.get_source(err_id);
+				std::cerr << val.error().to_string(*err_source) << "\n";
 				break;
 			}
 		}
 	} catch (const dara::error::FatalSyntaxError& e) {
-		std::cerr << e.to_string(s) << std::endl;
+		std::cerr << e.to_string(*s) << std::endl;
 		return std::exit(1);
 	}
 }
@@ -175,9 +186,8 @@ void run_repl() {
 			for (const auto& decl : program.declarations) {
 				auto val = interpreter.exec(decl.get());
 				if (!val) {
-					//std::cerr << "Interpreter Error: " << val.error().message
-					std::cerr << val.error().message
-					          << "\n";
+					// std::cerr << "Interpreter Error: " << val.error().message
+					std::cerr << val.error().message << "\n";
 					break;
 				}
 			}

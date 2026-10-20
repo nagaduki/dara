@@ -17,6 +17,9 @@ constexpr bool isSpace(char ch) {
 }
 // constexpr bool isSpace(char ch) { return ch == '\t' || ch == ' ' || ch ==
 // '\r'; }
+
+//using Rule = std::function<std::expected<T, dara::error::SyntaxError>(Source*)>;
+
 constexpr bool isDigit(char ch) { return '0' <= ch && ch <= '9'; }
 constexpr bool isUpper(char ch) { return 'A' <= ch && ch <= 'Z'; }
 constexpr bool isLower(char ch) { return 'a' <= ch && ch <= 'z'; }
@@ -127,6 +130,7 @@ inline dara::combinator::Rule<char> Assign =
     sym('=') || dara::combinator::left("not '='");
 extern dara::combinator::Rule<int> integer_literal;
 extern dara::combinator::Rule<double> double_literal;
+extern dara::combinator::Rule<char> char_literal;
 extern dara::combinator::Rule<std::string> string_literal;
 // extern dara::combinator::Rule<std::string> boolean_literal;
 extern dara::combinator::Rule<bool> boolean_literal;
@@ -185,6 +189,8 @@ inline dara::combinator::Rule<char> LBrace = sym('{');
 inline dara::combinator::Rule<char> RBrace = sym('}');
 inline dara::combinator::Rule<char> LBracket = sym('[');
 inline dara::combinator::Rule<char> RBracket = sym(']');
+inline dara::combinator::Rule<char> Colon = sym(':');
+inline dara::combinator::Rule<char> SemiColon = sym(';');
 
 // リテラル用
 inline dara::combinator::Rule<char> DQuote = sym('"');

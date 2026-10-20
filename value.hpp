@@ -35,8 +35,12 @@ using Allocator = std::pmr::polymorphic_allocator<std::byte>;
 //using String = std::pmr::basic_string<char>;
 using String = std::pmr::string;
 using Array = std::pmr::vector<Value>;
+using Map = std::pmr::unordered_map<std::pmr::string, Value>;
 
 std::string to_string(const Value& val);
+//std::string to_string(const Value& val);
+
+//std::string clone(std::vector<dara::backend::Value>::allocator_type alloc);
 
 struct Range {
     int start;
@@ -51,13 +55,18 @@ using ValueData = std::variant<char, int, double, bool, Range,
                                String,
                                //
                                //std::vector<Value>,
-                               Array,
+                               //Array,
+                               std::shared_ptr<Array>,
+                               std::shared_ptr<Map>,
                                //
                                std::shared_ptr<Callable>,
                                std::shared_ptr<Class>,
                                std::shared_ptr<Instance>,
                                //
                                std::monostate>;
+
+
+using allocator_type = std::pmr::polymorphic_allocator<Value>;
 
 struct Value {
 	// ValueData value;
@@ -75,7 +84,7 @@ struct Value {
 		return false;
 	}
 
-	//std::string to_string() const;
+    Value clone(allocator_type alloc) const;
 };
 
 }  // namespace dara

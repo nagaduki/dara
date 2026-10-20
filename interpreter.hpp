@@ -15,11 +15,11 @@
 
 namespace dara::backend {
 
-std::string to_string(const Value& val);
+//std::string to_string(const Value& val);
 
 class Interpreter {
    public:
-	dara::backend::Allocator get_allocator() { return alloc; }
+	dara::backend::Allocator get_allocator() { return this->alloc; }
 	Interpreter(Interpreter&&) = default;  //(***)
 	~Interpreter() {
 		if (this->env) {
@@ -115,6 +115,7 @@ class Interpreter {
     uint16_t get_id() { return this->id; } //(***)
 
 	bool is_truthy(const Value& val);
+	Value ensure_value_semantics(const Value& original_val);
 
    private:
 	std::ostream& out;
@@ -184,6 +185,24 @@ class Interpreter {
 		    "clock",
 		    //Value{.data = std::make_shared<dara::backend::BuiltinClock>()});
 		    Value{.data = std::allocate_shared<dara::backend::BuiltinClock>(this->alloc)});
+
+		this->globals->define(
+		    //"clock2",
+		    "date",
+		    //Value{.data = std::make_shared<dara::backend::BuiltinClock>()});
+		    Value{.data = std::allocate_shared<dara::backend::BuiltinDate>(this->alloc)});
+
+		this->globals->define(
+		    "time",
+		    //Value{.data = std::make_shared<dara::backend::BuiltinClock>()});
+		    Value{.data = std::allocate_shared<dara::backend::BuiltinTime>(this->alloc)});
+
+
+		this->globals->define(
+		    "now",
+		    //Value{.data = std::make_shared<dara::backend::BuiltinClock>()});
+		    Value{.data = std::allocate_shared<dara::backend::BuiltinNow>(this->alloc)});
+
 
 		// this->env->define(
 		this->globals->define(

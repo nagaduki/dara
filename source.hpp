@@ -5,7 +5,7 @@
 // #include <sstream>
 #include <memory>
 #include <string>
-#include <string_view>
+//#include <string_view>
 #include <vector>
 
 #include "error.hpp"
@@ -22,10 +22,11 @@ class Source {
 	size_t position = 0;
 	const uint16_t id = 0;
 	*/
-	std::string_view data;
+	// std::string_view data;
+	std::string code;
 	std::string name;
-	size_t position = 0;
 	uint16_t id = 0;
+	uint32_t position = 0;
 
    private:
 	void skip_line_comment() {
@@ -86,10 +87,11 @@ class Source {
 
 	// Source(const char* s) : s(s), line(1), col(1), data(s), position(0)
 	// {} Source(const char* s) : line(1), col(1), data(s), position(0) {}
-	Source(const char* s) : data(s), position(0) {}
+	// Source(const char* s) : data(s), position(0) {}
+	Source(const char* s) : code(s), position(0) {}
 	Source(const std::string& code, const std::string& filename,
 	       uint16_t file_id)
-	    : data(code), name(filename), id(file_id) {}
+	    : code(code), name(filename), id(file_id) {}
 
 	/*
 	std::expected<char, dara::error::SyntaxError> peek() {
@@ -106,10 +108,10 @@ class Source {
 
 	std::expected<char, dara::error::SyntaxError> peek_offset(
 	    size_t offset) const {
-		if (position + offset >= data.size()) {
+		if (position + offset >= code.size()) {
 			return std::unexpected(make_error("too short"));
 		}
-		return data[position + offset];
+		return code[position + offset];
 	}
 
 	/*
@@ -148,9 +150,9 @@ class Source {
 		std::optional<char> actual_char = std::nullopt;
 
 		// 2. もし安全に読める文字が残っていれば、その文字を入れる
-		if (this->position < this->data.size()) {
-			// actual_char = data[position];
-			actual_char = data[span.start];
+		if (this->position < this->code.size()) {
+			// actual_char = code[position];
+			actual_char = code[span.start];
 		}
 
 		// auto [l, c] = this->get_line_col();
@@ -174,10 +176,10 @@ class Source {
 	bool isEnd() const {
 		// return *s == '\0';
 		// return this->position >= this->data.size();
-		return this->position >= this->data.size();
+		return this->position >= this->code.size();
 	}
 	// bool operator==(const Source& src) const { return s == src.s; }
-	bool operator==(const Source& src) const { return this->data == src.data; }
+	bool operator==(const Source& src) const { return this->code == src.code; }
 	/* 上のoverloadされた==を使って!=をoverload */
 	bool operator!=(const Source& src) const { return !(*this == src); }
 
@@ -186,10 +188,10 @@ class Source {
 		int line = 1;
 		int col = 1;
 		for (size_t i = 0; i < position; i++) {
-			char c = data[i];
+			char c = code[i];
 
 			if (c == '\r') {
-				if (i + 1 < data.size() && data[i + 1] == '\n') {
+				if (i + 1 < code.size() && code[i + 1] == '\n') {
 					i++;
 				}
 				line++;
@@ -207,8 +209,8 @@ class Source {
 	std::pair<int, int> get_line_col(size_t target_offset) const {
 		int line = 1;
 		int col = 1;
-		for (size_t i = 0; i < target_offset && i < data.size(); i++) {
-			char c = data[i];
+		for (size_t i = 0; i < target_offset && i < code.size(); i++) {
+			char c = code[i];
 			if (c == '\n') {
 				line++;
 				col = 1;
@@ -220,10 +222,10 @@ class Source {
 	};
 
 	std::optional<char> peek_next() const {
-		if (position + 1 >= data.size()) {
+		if (position + 1 >= code.size()) {
 			return std::nullopt;
 		}
-		return data[position + 1];
+		return code[position + 1];
 	}
 
 	// comment out
@@ -265,11 +267,11 @@ class Source {
 		int current_line = 1;
 		size_t line_start = 0;
 
-		for (size_t i = 0; i <= this->data.length(); i++) {
-			if (i == this->data.length() || this->data[i] == '\n') {
+		for (size_t i = 0; i <= this->code.length(); i++) {
+			if (i == this->code.length() || this->code[i] == '\n') {
 				if (current_line == target_line) {
 					return std::string(
-					    this->data.substr(line_start, i - line_start));
+					    this->code.substr(line_start, i - line_start));
 				}
 				current_line++;
 				line_start = i + 1;
@@ -355,19 +357,19 @@ class Source {
 class SourceManager {
    private:
 	std::vector<std::unique_ptr<Source>> sources;
-	//uint16_t id;
+	// uint16_t id;
 
    public:
-	uint16_t load_file(const std::string& filename, const std::string& code) {
+	uint16_t load_file(const std::string filename, const std::string& code) {
 		//
 		const uint16_t id = static_cast<uint16_t>(sources.size());
-		auto source = std::make_unique<Source>(code, filename, id);
-		//auto source = std::make_unique<Source>(
-		//    Source{.data = code, .name = filename, .id = id});
-		// source->id = id;
+		auto source = std::make_unique<Source>(std::move(code), std::move(filename), id);
+		// auto source = std::make_unique<Source>(
+		//     Source{.data = code, .name = filename, .id = id});
+		//  source->id = id;
 
 		sources.push_back(std::move(source));
-		//this->id = id;  //
+		// this->id = id;  //
 		return id;
 	}
 

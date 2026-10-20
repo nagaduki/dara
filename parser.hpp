@@ -112,7 +112,10 @@ class Parser {
 
 	std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError> paren_expr();
 
-	std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError> bracket_expr();
+	//std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError> bracket_expr();
+	std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError> array_expr();
+
+	std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError> map_expr();
 
 	std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError> dotdot_expr();
 
@@ -148,7 +151,8 @@ class Parser {
 	std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError> expr_stmt(
 	    std::unique_ptr<Expr> expr);
 
-	std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError> brace_stmt();
+	//std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError> brace_stmt();
+	std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError> block_stmt();
 
 	std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError> else_stmt();
 

@@ -579,7 +579,7 @@ Parser::call_expr(std::unique_ptr<Expr> callee) {
 		size_t end = s->get_current();
 		auto call_res = std::make_unique<Expr>();
 		call_res->value = CallExpr{std::move(callee), std::move(arguments)};
-		//call_res->span = Span{start, end, this->s->get_id()};
+		// call_res->span = Span{start, end, this->s->get_id()};
 		call_res->span = Span{start, end};
 		return call_res;
 	}
@@ -726,8 +726,11 @@ Parser::paren_expr() {
 	return std::move(inner_res.value());
 }
 
+// Array Parse //
+// array_expr in parser_expr //
 std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError>
-Parser::bracket_expr() {
+// Parser::bracket_expr() {
+Parser::array_expr() {
 	size_t start = s->get_current();
 	if (!LBracket(this->s)) {
 		return std::unexpected(this->s->make_error("not '['"));
@@ -759,6 +762,55 @@ Parser::bracket_expr() {
 	                                   .span = Span{start, end}});
 }
 
+// map_expr in parser_expr //
+std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError>
+Parser::map_expr() {
+	size_t start = s->get_current();
+
+	if (!LBrace(this->s)) {
+		//
+		return std::unexpected(this->s->make_error("expected '{}'"));
+	}
+
+	std::vector<std::pair<std::string, std::unique_ptr<Expr>>> elements;
+	// std::vector<std::pair<std::string, std::unique_ptr<Expr>>> elements;
+	// std::vector<std::pair<std::pmr::string, std::unique_ptr<Expr>>> elements;
+	// MapExpr elements;
+
+	if (!RBrace(this->s)) {
+		//
+		while (true) {
+			auto key_res = string_literal(this->s);
+			if (!key_res) {
+				return std::unexpected(key_res.error());
+			}
+
+			if (!Colon(this->s)) {
+				return std::unexpected(this->s->make_error("expected ':'"));
+			}
+			// auto val_res = this->expr(0);
+			auto val_res = this->expr();
+			if (!val_res) {
+				return std::unexpected(val_res.error());
+			}
+
+			elements.push_back({key_res.value(), std::move(val_res.value())});
+			if (RBrace(this->s)) {
+				break;
+			}
+			if (!Comma(this->s)) {
+				return std::unexpected(this->s->make_error("expected ','"));
+			}
+			if (RBrace(this->s)) {
+				break;
+			}
+		}
+	}
+	size_t end = s->get_current();
+	return std::make_unique<Expr>(
+	    Expr{.value = MapExpr{std::move(elements)}, .span = Span{start, end}});
+}
+
 /* dot_expr in parser_expr.cpp */
 std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError> Parser::dot_expr(
     std::unique_ptr<Expr> left) {
@@ -773,8 +825,8 @@ std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError> Parser::dot_expr(
 	size_t end = s->get_current();
 
 	// auto value_res = std::make_unique<Expr>();
-	// value_res->value = GetExpr{std::move(left), std::move(name_res.value())};
-	// value_res->span = Span{start, end};
+	// value_res->value = GetExpr{std::move(left),
+	// std::move(name_res.value())}; value_res->span = Span{start, end};
 	// return value_res;
 
 	return std::make_unique<Expr>(
@@ -812,7 +864,8 @@ Parser::atom_expr() {
 		    dara::Expr{dara::IntExpr{int_res.value()}});
 		*/
 		// return std::make_unique<Expr>(
-		//     Expr{.value = DoubleExpr{.value = std::move(double_res.value())},
+		//     Expr{.value = DoubleExpr{.value =
+		//     std::move(double_res.value())},
 		//          .line = line,
 		//          .col = col});
 
@@ -846,7 +899,8 @@ Parser::atom_expr() {
 		    dara::Expr{dara::StringExpr{str_res.value()}});
 		*/
 		// return std::make_unique<Expr>(
-		//     Expr{.value = StringExpr{.value = std::move(str_res.value())},
+		//     Expr{.value = StringExpr{.value =
+		//     std::move(str_res.value())},
 		//          .line = line,
 		//          .col = col});
 
@@ -856,6 +910,16 @@ Parser::atom_expr() {
 		         .span = Span{start, end}});
 	}
 	*s = backup;
+
+	if (auto char_res = char_literal(this->s)) {
+		end = s->get_current();
+		return std::make_unique<Expr>(
+		    Expr{.value = CharExpr{.value = char_res.value()},
+		         .span = Span{start, end}});
+	}
+    *s = backup;
+
+
 
 	if (auto id_res = identifier(this->s)) {
 		// return std::make_unique<Expr>(
@@ -871,6 +935,7 @@ Parser::atom_expr() {
 
 	end = s->get_current();
 	*(this->s) = backup;
+
 
 	return std::unexpected(
 	    // this->s->make_error("expected an atom (integer, double, string or
@@ -897,7 +962,7 @@ Parser::fn_expr() {
 		return std::unexpected(this->s->make_error("Expected '(' after 'fn'"));
 	}
 
-	//std::vector<std::string> parameters;
+	// std::vector<std::string> parameters;
 	std::vector<dara::ast::Identifier> parameters;
 
 	if (!RParen(this->s)) {
@@ -948,8 +1013,8 @@ Parser::fn_expr() {
 
 /*
 std::expected<std::unique_ptr<dara::Expr>, dara::error::SyntaxError>
-Parser::this_expr() { auto this_expr = std::make_unique<dara::Expr>(); return
-this_expr;
+Parser::this_expr() { auto this_expr = std::make_unique<dara::Expr>();
+return this_expr;
 }
 */
 
@@ -981,7 +1046,14 @@ std::expected<std::unique_ptr<Expr>, dara::error::SyntaxError> Parser::nud() {
 
 	if (LBracket(this->s)) {
 		*(this->s) = backup;
-		return bracket_expr();
+		// return bracket_expr();
+		return array_expr();
+	}
+
+	if (LBrace(this->s)) {
+		*(this->s) = backup;
+		// return bracket_expr();
+		return map_expr();
 	}
 
 	if (This(this->s)) {

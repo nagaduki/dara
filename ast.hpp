@@ -69,8 +69,14 @@ struct ArrayExpr {
 };
 
 struct IndexExpr {
-	std::unique_ptr<Expr> array;
+	//std::unique_ptr<Expr> array;
+	std::unique_ptr<Expr> target;
 	std::unique_ptr<Expr> index;
+};
+
+struct MapExpr {
+	//std::vector<std::pair<std::pmr::string, std::unique_ptr<Expr>>> elements;
+	std::vector<std::pair<std::string, std::unique_ptr<Expr>>> elements;
 };
 
 struct ThisExpr {};
@@ -167,7 +173,7 @@ using ExprValue =
     std::variant<IntExpr, DoubleExpr, CharExpr, StringExpr, BoolExpr,
                  // IdentifierExpr,
                  // AssignExpr,
-                 ArrayExpr, IndexExpr, GetExpr, ThisExpr,
+                 ArrayExpr, MapExpr, IndexExpr, GetExpr, ThisExpr,
                  //
                  CallExpr, FunctionExpr,
                  // VarExpr, InfixOpExpr, PrefixOpExpr, PostfixOpExpr>;

@@ -139,14 +139,12 @@ std::string DotPrinter::visit_decl(const Decl* decl) {
 		        bool is_require = false;
 		        std::string module_path = "unknown";
 
-		        if (vd.initializer && std::holds_alternative<CallExpr>(
-		                                  vd.initializer->value)) {
-			        auto& call_expr =
-			            std::get<CallExpr>(vd.initializer->value);
+		        if (vd.initializer &&
+		            std::holds_alternative<CallExpr>(vd.initializer->value)) {
+			        auto& call_expr = std::get<CallExpr>(vd.initializer->value);
 
-			        if (call_expr.callee &&
-			            std::holds_alternative<VarExpr>(
-			                call_expr.callee->value)) {
+			        if (call_expr.callee && std::holds_alternative<VarExpr>(
+			                                    call_expr.callee->value)) {
 				        auto& var_expr =
 				            std::get<VarExpr>(call_expr.callee->value);
 				        if (var_expr.name.lexeme == "require") {
@@ -837,11 +835,10 @@ std::string DotPrinter::visit_expr(const Expr* expr) {
 	        },
 	        [this](const DoubleExpr& expr) {
 		        std::string id = this->next_node_id();
-		        this->out
-		            << std::format(
-		                   "node_{} [label=\"double: {}\", shape=house];", id,
-		                   expr.value)
-		            << std::endl;
+		        this->out << std::format(
+		                         "node_{} [label=\"double: {}\", shape=house];",
+		                         id, expr.value)
+		                  << std::endl;
 		        return id;
 	        },
 
@@ -894,6 +891,31 @@ std::string DotPrinter::visit_expr(const Expr* expr) {
 
 		        return id;
 	        },
+	        [this](const MapExpr& expr) {
+		        std::string id = this->next_node_id();
+
+		        // 1. MapExpr 自体のノードを出力
+		        this->out << std::format(
+		                         "node_{} [label=\"MapExpr\", shape=house];",
+		                         id)
+		                  << std::endl;
+
+		        // 2. 配列の各要素（子ノード）を再帰的に出力し、矢印で結ぶ
+		        int index = 0;
+		        for (const auto& pair : expr.elements) {
+			        //std::string key_id = pair.first;
+			        std::string child_id = this->visit_expr(pair.second.get());
+
+			        // 矢印のラベルにインデックス番号（[0], [1]...）をつける
+			        this->out
+			            << std::format("node_{}->node_{} [label=\"[{}]\"];",
+			                           id, child_id, index)
+			            << std::endl;
+			        index++;
+		        }
+
+		        return id;
+	        },
 
 	        /*
 	        [this](const dara::CallExpr& expr) {  // dummy
@@ -914,7 +936,7 @@ std::string DotPrinter::visit_expr(const Expr* expr) {
 		        return id;
 	        },
 	        [this](const GetExpr& ge) {  // dummy
-		        //dara::PrintStmt();
+		        // dara::PrintStmt();
 		        std::string id = this->next_node_id();
 		        this->out
 		            << std::format(

@@ -1,7 +1,10 @@
 #include "builtin.hpp"
 
 #include <chrono>
+#include <algorithm>
+#include <format>
 #include <memory>
+#include <memory_resource>
 
 #include "callable.hpp"
 #include "error.hpp"
@@ -10,6 +13,8 @@
 
 #define PRINT_LINE() \
 	std::cout << "Line: " << __LINE__ << " (in " << __FILE__ << ")" << std::endl
+
+using String = std::pmr::string;
 
 template <class... Ts>
 struct overloaded : Ts... {
@@ -26,6 +31,64 @@ std::expected<Value, dara::error::InterpreterError> BuiltinClock::call(
     Interpreter& interpreter, const std::vector<Value>& arguments) {
 	auto now = std::chrono::system_clock::now().time_since_epoch();
 	int seconds = std::chrono::duration_cast<std::chrono::seconds>(now).count();
+
+	return Value{.data = seconds};
+}
+
+// using String = std::pmr::string;
+std::expected<Value, dara::error::InterpreterError> BuiltinDate::call(
+    Interpreter& interpreter, const std::vector<Value>& arguments) {
+	// auto now = std::chrono::system_clock::now().time_since_epoch();
+	auto now = std::chrono::system_clock::now();
+	auto sec_time = floor<std::chrono::seconds>(now);
+	auto local_time =
+	    std::chrono::zoned_time{std::chrono::current_zone(), sec_time};
+	// int seconds =
+	// std::chrono::duration_cast<std::chrono::seconds>(now).count();
+	// String seconds(std::format("{:%Y-%m-%d %H:%M:%S}", local_time),
+	// interpreter.get_allocator()); //(**)
+	String seconds(std::format("{:%Y-%m-%d}", local_time),
+	               interpreter.get_allocator());  //(**)
+
+	return Value{.data = seconds};
+}
+
+// using String = std::pmr::string;
+std::expected<Value, dara::error::InterpreterError> BuiltinTime::call(
+    Interpreter& interpreter, const std::vector<Value>& arguments) {
+	// auto now = std::chrono::system_clock::now().time_since_epoch();
+	auto now = std::chrono::system_clock::now();
+	auto sec_time = floor<std::chrono::seconds>(now);
+	auto local_time =
+	    std::chrono::zoned_time{std::chrono::current_zone(), sec_time};
+	// int seconds =
+	// std::chrono::duration_cast<std::chrono::seconds>(now).count();
+	// String seconds(std::format("{:%Y-%m-%d %H:%M:%S}", local_time),
+	// interpreter.get_allocator()); //(**)
+	String seconds(std::format("{:%H:%M:%S}", local_time),
+	               interpreter.get_allocator());  //(**)
+	// String seconds(std::format("{:%Y-%m-%d}", local_time),
+	// interpreter.get_allocator()); //(**)
+
+	return Value{.data = seconds};
+}
+
+// using String = std::pmr::string;
+std::expected<Value, dara::error::InterpreterError> BuiltinNow::call(
+    Interpreter& interpreter, const std::vector<Value>& arguments) {
+	// auto now = std::chrono::system_clock::now().time_since_epoch();
+	auto now = std::chrono::system_clock::now();
+	auto sec_time = floor<std::chrono::seconds>(now);
+	auto local_time =
+	    std::chrono::zoned_time{std::chrono::current_zone(), sec_time};
+	// int seconds =
+	// std::chrono::duration_cast<std::chrono::seconds>(now).count();
+	String seconds(std::format("{:%Y-%m-%d %H:%M:%S}", local_time),
+	               interpreter.get_allocator());  //(**)
+	// String seconds(std::format("{:%H:%M:%S}", local_time),
+	// interpreter.get_allocator()); //(**) String
+	// seconds(std::format("{:%Y-%m-%d}", local_time),
+	// interpreter.get_allocator()); //(**)
 
 	return Value{.data = seconds};
 }
@@ -92,6 +155,9 @@ std::expected<Value, dara::error::InterpreterError> BuiltinType::call(
 	        [&](const Array&) -> Result<Value> {
 		        return Value{String("Array", interpreter.get_allocator())};
 	        },
+	        [&](const Map&) -> Result<Value> {
+		        return Value{String("Map", interpreter.get_allocator())};
+	        },
 	        [&](auto&&) -> Result<Value> {
 		        return Value{String("Unknown", interpreter.get_allocator())};
 	        }},
@@ -153,7 +219,7 @@ std::expected<Value, dara::error::InterpreterError> BuiltinAssert::call(
 			// PRINT_LINE();
 			msg += ": " + *str;
 		}
-		PRINT_LINE();
+		//PRINT_LINE();
 		return std::unexpected(dara::error::InterpreterError(msg));
 	}
 	PRINT_LINE();
@@ -217,13 +283,17 @@ std::expected<Value, dara::error::InterpreterError> BuiltinProps::call(
 			current_class = current_class->super;
 		}
 		// std::vector<Value> result_array;
+
 		Array result_array;
 		for (const auto& name : prop_names) {
 			String pmr_name(name.c_str(), interpreter.get_allocator());
 			result_array.push_back(Value{.data = pmr_name});
 		}
 
-		return Value{.data = result_array};
+		auto array_ptr = std::allocate_shared<Array>(
+		    interpreter.get_allocator(), std::move(result_array));
+
+		return Value{.data = std::move(array_ptr)};
 		// return Value{.data = prop_names};
 	}
 
@@ -339,5 +409,6 @@ std::expected<Value, dara::error::InterpreterError> BuiltinRequire::call(
 
 	return interpreter.load_module(target_path.string());
 }
+
 
 }  // namespace dara::backend

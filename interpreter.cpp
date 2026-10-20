@@ -23,6 +23,9 @@
 #include "instance.hpp"
 // #include "native_function.hpp"
 #include "builtin.hpp"
+#include "string.hpp"
+#include "map.hpp"
+#include "array.hpp"
 #include "environment.hpp"
 #include "parser.hpp"
 
@@ -64,7 +67,7 @@ Result<Value> Interpreter::load_module(const std::string& path) {
 		return Value{.data = this->module_cache.at(path)};  // (A)
 	}
 
-	std::ifstream file(path);  
+	std::ifstream file(path);
 	if (!file.is_open()) {
 		return std::unexpected(dara::error::InterpreterError(
 		    "Could not open module file: " + path));
@@ -73,14 +76,14 @@ Result<Value> Interpreter::load_module(const std::string& path) {
 	buffer << file.rdbuf();
 	std::string source_code = buffer.str();
 
-    /*
+	/*
 	Source s(source_code.c_str());
 	dara::frontend::Parser p(&s);
-    */
+	*/
 
-    uint16_t file_id = this->source_manager.load_file(path, source_code);
-    dara::core::Source* s = this->source_manager.get_source(file_id);
-    dara::frontend::Parser p(s);
+	uint16_t file_id = this->source_manager.load_file(path, source_code);
+	dara::core::Source* s = this->source_manager.get_source(file_id);
+	dara::frontend::Parser p(s);
 
 	auto program_res = p.program();
 	if (!program_res) {
@@ -88,7 +91,6 @@ Result<Value> Interpreter::load_module(const std::string& path) {
 		    dara::error::InterpreterError("syntax error in module '" + path +
 		                                  "': " + program_res.error().message));
 	}
-
 
 	// dara::Program program = std::move(program_res.value());
 	this->module_asts.push_back(std::move(program_res.value()));
@@ -168,7 +170,8 @@ Result<void> Interpreter::visit_decl(const Decl* decl) {
 			        if (!res) {
 				        return std::unexpected(res.error());
 			        }
-			        initial_val = res.value();
+			        // initial_val = res.value();
+			        initial_val = this->ensure_value_semantics(res.value());
 		        }
 
 		        this->env.get()->define(d.name.lexeme, initial_val);
@@ -179,7 +182,8 @@ Result<void> Interpreter::visit_decl(const Decl* decl) {
 	        // ClassDecl
 	        [this, decl](const ClassDecl& d) -> Result<void> {
 		        //
-		        this->env->define(d.name.lexeme, Value{std::monostate{}});  // (A)
+		        this->env->define(d.name.lexeme,
+		                          Value{std::monostate{}});  // (A)
 
 		        // super class
 		        std::shared_ptr<dara::backend::Class> super = nullptr;
@@ -269,8 +273,9 @@ Result<void> Interpreter::visit_decl(const Decl* decl) {
 		        }
 		        // auto cls = std::make_shared<dara::backend::Class>(
 		        auto cls = std::allocate_shared<dara::backend::Class>(
-		            this->alloc, d.name.lexeme, std::move(super), std::move(mixins),
-		            std::move(methods), std::move(static_methods));
+		            this->alloc, d.name.lexeme, std::move(super),
+		            std::move(mixins), std::move(methods),
+		            std::move(static_methods));
 
 		        // cls->super = std::move(super);
 		        // cls->mixins = std::move(mixins);
@@ -294,7 +299,7 @@ Result<void> Interpreter::visit_decl(const Decl* decl) {
 	    decl->value);
 };
 
-/* in visit_stmt.cpp  */
+/* visit_stmt in visit_stmt.cpp  */
 Result<void> Interpreter::visit_stmt(const Stmt* stmt) {
 	return std::visit(
 	    overloaded{
@@ -337,8 +342,9 @@ Result<void> Interpreter::visit_stmt(const Stmt* stmt) {
 		        if (!obj_res) {
 			        auto obj_err = obj_res.error();
 			        // obj_err.span = stmt->span;
-			        //return std::unexpected(obj_err);
-			        return std::unexpected(obj_res.error().enrich_span(stmt->span));
+			        // return std::unexpected(obj_err);
+			        return std::unexpected(
+			            obj_res.error().enrich_span(stmt->span));
 		        }
 		        // return obj_res.error();
 
@@ -371,9 +377,15 @@ Result<void> Interpreter::visit_stmt(const Stmt* stmt) {
 		        if (!res) return std::unexpected(res.error());
 		        return {/* next is here 612 */};
 	        },
-	        [this](const PrintStmt& s) -> Result<void> {
-		        auto res = this->visit_expr(s.expr.get());
-		        if (!res) return std::unexpected(res.error());
+	        [this, stmt](const PrintStmt& print_stmt) -> Result<void> {
+		        auto res = this->visit_expr(print_stmt.expr.get());
+		        if (!res) {
+			        return std::unexpected(res.error().enrich_span(stmt->span));
+			        // return
+			        // std::unexpected(res.error().enrich_span(stmt->span);
+			        // return std::unexpected(dara::error::InterpreterError(
+			        //"only instance have fields", stmt->span));
+		        }
 		        this->out << dara::backend::to_string(res.value())
 		                  << "\n";  //(**)
 		        return {};
@@ -386,9 +398,11 @@ Result<void> Interpreter::visit_stmt(const Stmt* stmt) {
 		        auto* num = std::get_if<int>(&val_res.value().data);
 		        if (!num)
 			        return std::unexpected(dara::error::InterpreterError{
-			            "Operand '" + stmt.name.lexeme + "' must be a number."});
+			            "Operand '" + stmt.name.lexeme +
+			            "' must be a number."});
 
-		        auto assign_res = this->env->assign(stmt.name.lexeme, Value{*num + 1});
+		        auto assign_res =
+		            this->env->assign(stmt.name.lexeme, Value{*num + 1});
 		        if (!assign_res)
 			        return std::unexpected(dara::error::InterpreterError{
 			            "undefined variable '" + stmt.name.lexeme + "'"});
@@ -402,7 +416,8 @@ Result<void> Interpreter::visit_stmt(const Stmt* stmt) {
 		        auto* num = std::get_if<int>(&val_res.value().data);
 		        if (!num)
 			        return std::unexpected(dara::error::InterpreterError{
-			            "Operand '" + stmt.name.lexeme + "' must be a number."});
+			            "Operand '" + stmt.name.lexeme +
+			            "' must be a number."});
 
 		        auto assign_res =
 		            this->env.get()->assign(stmt.name.lexeme, Value{*num - 1});
@@ -413,17 +428,21 @@ Result<void> Interpreter::visit_stmt(const Stmt* stmt) {
 	        },
 
 	        [this](const AssignStmt& s) -> Result<void> {
-		        auto new_value_res = this->visit_expr(s.value.get());  //(*)
+		        auto new_value_res = this->visit_expr(s.value.get());
 		        if (!new_value_res) {
-			        //PRINT_LINE();
+			        // PRINT_LINE();
 			        return std::unexpected(new_value_res.error());
 		        }
-		        Value new_value = new_value_res.value();
+
+		        // Value new_value = new_value_res.value(); // old code
+		        Value new_value = this->ensure_value_semantics(
+		            new_value_res.value());  // new_code (value_semantics)
 
 		        // auto success = this->env.assign(s.name, new_value);
-		        auto success = this->env.get()->assign(s.name.lexeme, new_value);
+		        auto success =
+		            this->env.get()->assign(s.name.lexeme, new_value);
 		        if (!success) {
-			        //PRINT_LINE();
+			        // PRINT_LINE();
 			        return std::unexpected(dara::error::InterpreterError{
 			            "undefined variable '" + s.name.lexeme + "'"});
 		        }
@@ -466,8 +485,9 @@ Result<void> Interpreter::visit_stmt(const Stmt* stmt) {
 		        auto current_value_opt = this->env->get(cas.name.lexeme);  //(*)
 		        if (!current_value_opt.has_value()) {
 			        PRINT_LINE();
-			        return std::unexpected(dara::error::InterpreterError(
-			            std::format("Underfined variable '{}'", cas.name.lexeme)));
+			        return std::unexpected(
+			            dara::error::InterpreterError(std::format(
+			                "Underfined variable '{}'", cas.name.lexeme)));
 		        }
 		        Value current_value = current_value_opt.value();  // 1
 
@@ -500,15 +520,18 @@ Result<void> Interpreter::visit_stmt(const Stmt* stmt) {
 		                std::get_if<std::shared_ptr<dara::backend::Instance>>(
 		                    &obj.data)) {
 			        // current property value
-			        auto current_val_opt = (*instance)->get(*this, c_stmt.name.lexeme);
+			        auto current_val_opt =
+			            (*instance)->get(*this, c_stmt.name.lexeme);
 			        if (!current_val_opt) {
-				        //auto val_opt_err = current_val_opt.error();
-				        //val_opt_err.span = stmt->span;
-				        //return std::unexpected(val_opt_err);
-				        //return std::unexpected(val_opt_err.enrich_span(stmt->span)); //(A)
-				        return std::unexpected(current_val_opt.error().enrich_span(c_stmt.name.span)); //(A)
-
-
+				        // auto val_opt_err = current_val_opt.error();
+				        // val_opt_err.span = stmt->span;
+				        // return std::unexpected(val_opt_err);
+				        // return
+				        // std::unexpected(val_opt_err.enrich_span(stmt->span));
+				        // //(A)
+				        return std::unexpected(
+				            current_val_opt.error().enrich_span(
+				                c_stmt.name.span));  //(A)
 
 				        // return std::unexpected(dara::error::InterpreterError(
 				        //     std::format("Undefined property '{}'",
@@ -531,8 +554,8 @@ Result<void> Interpreter::visit_stmt(const Stmt* stmt) {
 
 			        Value new_val = eval_res.value();
 			        (*instance)->set(c_stmt.name.lexeme, new_val);
-			        //auto set_res = (*instance)->set(c_stmt.name, new_val);
-                    
+			        // auto set_res = (*instance)->set(c_stmt.name, new_val);
+
 			        return {};
 		        }
 		        return std::unexpected(dara::error::InterpreterError(
@@ -610,31 +633,39 @@ Result<void> Interpreter::visit_stmt(const Stmt* stmt) {
 				        // auto loop_res = this->execute_for_iteration(
 				        //    s.loop_variable, Value{i}, s.body.get());
 			        }
-		        } else if (const auto* arr_ptr = std::get_if<Array>(
-		                       // std::get_if<std::vector<Value>>( // (***)
-		                       &iterable_val.data)) {
-			        // 対象が 配列 の場合 ([a, b, c] など)
+			        //} else if (const auto* arr_ptr =
+			        // std::get_if<Array>(&iterable_val.data)) {
+		        } else if (const auto* arr_ptr =
+		                       std::get_if<std::shared_ptr<Array>>(
+		                           &iterable_val.data)) {  //(****)
+			        // using Array = std::pmr::vector<Value>;
+			        // std::shared_ptr<Array>
+			        //  std::get_if<std::vector<Value>>( // (***)
+			        // if (const auto* val_ptr = std::get_if<arr_ptr>) {
+			        if (*arr_ptr != nullptr) {
+				        // 対象が 配列 の場合 ([a, b, c] など)
 
-			        for (const auto& elem : *arr_ptr) {
-				        // auto previous_env = this->env;
-				        try {
-					        auto loop_res = this->execute_for_iteration(
-					            s.loop_variable.lexeme, elem, s.body.get());
-					        if (!loop_res) {
-						        return loop_res;
+				        Array* raw_array = (*arr_ptr).get();
+				        for (const auto& elem : *raw_array) {
+					        // auto previous_env = this->env;
+					        try {
+						        auto loop_res = this->execute_for_iteration(
+						            s.loop_variable.lexeme, elem, s.body.get());
+						        if (!loop_res) {
+							        return loop_res;
+						        }
+
+					        } catch (const dara::backend::ContinueException&) {
+						        // 何もせず環境を戻して、次のイテレーション（C++のループ）へ進む
+						        // this->env = previous_env;
+						        continue;
+					        } catch (const dara::backend::BreakException&) {
+						        // 環境を戻して、C++のループ自体を終了する
+						        // this->env = previous_env;
+						        break;
 					        }
-
-				        } catch (const dara::backend::ContinueException&) {
-					        // 何もせず環境を戻して、次のイテレーション（C++のループ）へ進む
-					        // this->env = previous_env;
-					        continue;
-				        } catch (const dara::backend::BreakException&) {
-					        // 環境を戻して、C++のループ自体を終了する
-					        // this->env = previous_env;
-					        break;
 				        }
 			        }
-
 		        } else {
 			        return std::unexpected(dara::error::InterpreterError{
 			            "Object is not iterable."});
@@ -723,71 +754,34 @@ static bool check_inheritance(std::shared_ptr<dara::backend::Class> current,
 	return check_inheritance(current->super, target);
 }
 
+// helper function
+Value Interpreter::ensure_value_semantics(const Value& original_val) {
+	Value new_val = original_val;
+
+	if (auto* arr_ptr =
+	        std::get_if<std::shared_ptr<Array>>(&original_val.data)) {
+		new_val.data = std::allocate_shared<Array>(this->alloc, **arr_ptr);
+	} else if (auto* map_ptr =
+	               std::get_if<std::shared_ptr<Map>>(&original_val.data)) {
+		new_val.data = std::allocate_shared<Map>(this->alloc, **map_ptr);
+	} else if (auto* inst_ptr =
+	               std::get_if<std::shared_ptr<Instance>>(&original_val.data)) {
+		// do nothing
+	}
+	return new_val;
+}
+
 /* eval_infix */
 Result<Value> Interpreter::eval_infix(InfixOperator op, const Value& lhs_val,
                                       const Value& rhs_val, const Expr* expr) {
 	return std::visit(
 	    overloaded{
-	        // for integer
-	        /*
-	        [op, expr](int l, int r) -> Result<Value> {
-	            switch (op) {
-	                case InfixOperator::Add:
-	                    return Value{l + r};
-	                case InfixOperator::Sub:
-	                    return Value{l - r};
-	                case InfixOperator::Mul:
-	                    return Value{l * r};
-	                case InfixOperator::Pow:
-	                    return Value{static_cast<int>(std::pow(l, r))};
-	                case InfixOperator::Div:
-	                    if (r == 0) {
-	                        return std::unexpected(
-	                            dara::error::InterpreterError{"division by
-	        zero"});
-	                        //"division by zero", expr->line, expr->col});
-	                    }
-	                    return Value{l / r};
-	                case InfixOperator::Greater:
-	                    return Value{l > r};
-	                case InfixOperator::GreaterEqual:
-	                    return Value{l >= r};
-	                case InfixOperator::Less:
-	                    return Value{l < r};
-	                case InfixOperator::LessEqual:
-	                    return Value{l <= r};
-	                case InfixOperator::EqualEqual:
-	                    return Value{l == r};
-	                case InfixOperator::NotEqual:
-	                    return Value{l != r};
-	                case InfixOperator::Range:
-	                    if (typeid(l) == typeid(int) &&
-	                        typeid(r) == typeid(int)) {
-	                        return Value{dara::backend::Range{l, r}};
-	                    } else {
-	                        return
-	        std::unexpected(dara::error::InterpreterError{ "Range operands must
-	        be integers."});
-	                    }
-	                    // return Value{l != r};
-	                default:
-	                    return
-	        std::unexpected(dara::error::InterpreterError{std::format(
-	                        "[infix] unsupported operator error. {}",
-	                        expr->to_string())});
-	                    // expr->line, expr->col});
-	            }
-	        },
-	        */
 	        // Numeric
 	        [op, expr, this](const Numeric auto& l,
 	                         const Numeric auto& r) -> Result<Value> {
 		        switch (op) {
 			        case InfixOperator::Add: {
 				        return Value{l + r};
-				        // std::string l_str =
-				        // dara::backend::to_string(Value{l}); String res(l_str,
-				        // this->alloc); res += r; return Value{std::move(res)};
 			        }
 			        case InfixOperator::Sub:
 				        return Value{l - r};
@@ -835,10 +829,9 @@ Result<Value> Interpreter::eval_infix(InfixOperator op, const Value& lhs_val,
 				        }
 				        // return Value{l != r};
 			        default:
-				        return std::unexpected(
-				            dara::error::InterpreterError{std::format(
-				                "[infix] unsupported operator error. {}",
-				                expr->to_string())});
+				        return std::unexpected(dara::error::InterpreterError{
+				            std::format("unsupported operator error. {}",
+				                        expr->to_string())});
 				        // expr->line, expr->col});
 		        }
 	        },
@@ -909,62 +902,6 @@ Result<Value> Interpreter::eval_infix(InfixOperator op, const Value& lhs_val,
 		        }
 	        },
 
-	        /*
-	        [op, expr](const std::string& l,
-	                   const int r) -> Result<Value> {
-	            switch (op) {
-	                case InfixOperator::Add:
-	                    return Value{l + std::to_string(r)};
-	                case InfixOperator::EqualEqual:
-	                case InfixOperator::StrictEqual:
-	                    return Value{false};
-	                case InfixOperator::NotEqual:
-	                    return Value{true};
-	                default:
-	                    return std::unexpected(dara::error::InterpreterError{
-	                        "unsupported operator for string and integer"});
-	            }
-	        },
-	        [op, expr](const int l,
-	                   const std::string& r) -> Result<Value> {
-	            switch (op) {
-	                case InfixOperator::Add:
-	                    return Value{std::to_string(l)+r};
-	                case InfixOperator::EqualEqual:
-	                case InfixOperator::StrictEqual:
-	                    return Value{false};
-	                case InfixOperator::NotEqual:
-	                    return Value{true};
-	                default:
-	                    return std::unexpected(dara::error::InterpreterError{
-	                        "unsupported operator for integer and string"});
-	            }
-	        },
-	        */
-	        /*
-
-	    /*
-	    [op, expr](
-	        std::shared_ptr<dara::backend::Instance> l,
-	        std::shared_ptr<dara::backend::Class> r) ->
-	    Result<Value> {
-	        // return Value{.data = true};
-	        if (op == InfixOperator::Is) {
-	            return Value{.data =
-	                                  check_inheritance(l->get_class(),
-	    r)};
-	        }
-	        return std::unexpected(dara::error::InterpreterError{"unsupported
-	    oerator"});
-	    },
-	    // (int, int) or (string, string) 以外 i.e. mismatch
-	    [expr](const auto&, const auto&) -> Result<Value> {
-	        return std::unexpected(
-	            dara::error::InterpreterError{"type mismatch in binary
-	    operation", expr->line, expr->col});
-	    }},
-	    */
-
 	        [op](std::shared_ptr<dara::backend::Instance> l,
 	             std::shared_ptr<dara::backend::Instance> r) -> Result<Value> {
 		        // return Value{.data = true};
@@ -991,7 +928,42 @@ Result<Value> Interpreter::eval_infix(InfixOperator op, const Value& lhs_val,
 		        return std::unexpected(
 		            dara::error::InterpreterError{"unsupported operator"});
 	        },
-
+	        [op, this](const String& l, const auto& r) -> Result<Value> {
+		        if (op == InfixOperator::Add) {
+			        std::string r_str = dara::backend::to_string(Value{r});
+			        String res(l, this->alloc);
+			        res += r_str;
+			        return Value{std::move(res)};
+		        }
+		        return std::unexpected(dara::error::InterpreterError{
+		            "unsupported oprator",
+		        });
+	        },
+            // char + any //
+	        /*[op, this](const char l, const auto& r) -> Result<Value> {
+		        if (op == InfixOperator::Add) {
+			        std::string r_str = dara::backend::to_string(Value{r});
+			        //String res(l, this->alloc);
+			        String res(l+r_str, this->alloc);
+			        //res += L+r_str;
+			        return Value{std::move(res)};
+		        }
+		        return std::unexpected(dara::error::InterpreterError{
+		            "unsupported oprator",
+		        });
+	        },
+            */
+	        [op, this](const auto& l, const String& r) -> Result<Value> {
+		        if (op == InfixOperator::Add) {
+			        std::string l_str = dara::backend::to_string(Value{l});
+			        String res(l_str, this->alloc);
+			        res += r;
+			        return Value{std::move(res)};
+		        }
+		        return std::unexpected(dara::error::InterpreterError{
+		            "unsupported oprator",
+		        });
+	        },
 	        //[op, expr](const auto&, const auto& r_val) -> Result<Value> {
 	        [op, expr](const auto&, const auto&) -> Result<Value> {
 		        //
@@ -1199,45 +1171,176 @@ Result<Value> Interpreter::visit_expr(const Expr* expr) {
 	        // PMR
 	        [this, expr](const ArrayExpr& e) -> Result<Value> {
 		        Array evaluated_elements(this->alloc);
+
 		        for (const auto& elem : e.elements) {
 			        auto evaluated_val = this->visit_expr(elem.get());
 			        if (!evaluated_val) {
 				        return std::unexpected(evaluated_val.error());
 			        }
+
 			        evaluated_elements.push_back(evaluated_val.value());
 		        }
-		        return Value{std::move(evaluated_elements)};
-	        },
-	        [this, expr](const IndexExpr& e) -> Result<Value> {
-		        auto array_res = this->visit_expr(e.array.get());
-		        if (!array_res) {
-			        return std::unexpected(array_res.error());
+		        auto array_ptr = std::allocate_shared<Array>(
+		            this->alloc, std::move(evaluated_elements));
+
+		        return Value{std::move(array_ptr)};
+		        /*
+		        std::shared_ptr<Array> evaluated_elements2(this->alloc);
+		        for (const auto& elem : e.elements) {
+		            auto evaluated_elements = evaluated_elements2.get();
+
+		            auto evaluated_val = this->visit_expr(elem.get());
+		            if (!evaluated_val) {
+		                return std::unexpected(evaluated_val.error());
+		            }
+
+		            evaluated_elements.push_back(evaluated_val.value());
 		        }
 
+		        return Value{std::move(evaluated_elements2)};  //(A)
+		                                                      // return
+		        // Value{std::make_shared<std::move(evaluated_elements)>};
+		        // return Value{std::make_shared<evaluated_elements>};
+		        // 1007
+		        */
+	        },
+	        [this, expr](const MapExpr& e) -> Result<Value> {
+		        // auto map_obj = std::allocate_shared<Map>(this->alloc,
+		        // this->alloc);
+
+		        auto map_obj = std::allocate_shared<Map>(this->alloc);
+
+		        for (const auto& pair : e.elements) {
+			        auto val_res = this->visit_expr(pair.second.get());
+			        if (!val_res) {
+				        return std::unexpected(val_res.error());
+			        }
+			        std::pmr::string pmr_key(pair.first.c_str(), this->alloc);
+			        (*map_obj)[pmr_key] = val_res.value();
+		        }
+
+		        return Value{.data = map_obj};
+	        },
+	        // visit_expr
+	        [this, expr](const IndexExpr& e) -> Result<Value> {
+		        auto target_res = this->visit_expr(e.target.get());
+		        if (!target_res) {
+			        return std::unexpected(target_res.error());
+		        }
 		        auto index_res = this->visit_expr(e.index.get());
 		        if (!index_res) {
 			        return std::unexpected(index_res.error());
 		        }
 
-		        const auto* arr_ptr =
-		            // std::get_if<std::vector<Value>>(&array_res.value().data);
-		            std::get_if<Array>(&array_res.value().data);
-		        if (!arr_ptr) {
-			        return std::unexpected(dara::error::InterpreterError{
-			            "Only arrays can be indexed", expr->span});
+		        const Value& target_val = target_res.value();
+		        const Value& index_val = index_res.value();
+
+		        if (auto* arr_ptr =
+		                std::get_if<std::shared_ptr<Array>>(&target_val.data)) {
+			        //
+			        Array* raw_array = (*arr_ptr).get();
+			        const auto* index_ptr =
+			            std::get_if<int>(&index_res.value().data);
+			        if (!index_ptr) {
+				        return std::unexpected(dara::error::InterpreterError{
+				            "Array index must be integer"});
+			        }
+			        int index = *index_ptr;
+			        int arr_size = static_cast<int>(raw_array->size());
+
+			        if (index < 0 || index >= arr_size) {
+				        return std::unexpected(dara::error::InterpreterError{
+				            "Array index out of bounds: " +
+				                std::to_string(index) + " (size is " +
+				                std::to_string(arr_size) + ")",
+				            expr->span});
+			        }
+			        return (*raw_array)[index];
+		        }
+		        if (auto* map_ptr =
+		                std::get_if<std::shared_ptr<Map>>(&target_val.data)) {
+			        const auto* key_str = std::get_if<String>(&index_val.data);
+			        if (!key_str) {
+				        return std::unexpected(dara::error::InterpreterError(
+				            "Map keys must be strings"));
+			        }
+			        auto map_obj = *map_ptr;
+			        auto it = map_obj->find(*key_str);
+			        if (it != map_obj->end()) {
+				        return it->second;
+			        } else {
+				        return std::unexpected(dara::error::InterpreterError(
+				            "key '" + std::string(key_str->c_str()) +
+				            "' not found"));
+			        }
 		        }
 
-		        const auto* index_ptr =
-		            std::get_if<int>(&index_res.value().data);
-		        if (!index_ptr) {
-			        return std::unexpected(dara::error::InterpreterError{
-			            "Array index must be integer"});
-		        }
-		        int index = *index_ptr;
-		        return (*arr_ptr)[index];
+		        return std::unexpected(dara::error::InterpreterError(
+		            "only arrays and maps can be indexed", expr->span));
 	        },
+	        /*
+	        [this, expr](const IndexExpr& e) -> Result<Value> {
+	            // auto array_res = this->visit_expr(e.array.get());
+	            //  target check
+	            auto target_res = this->visit_expr(e.target.get());
+	            if (!target_res) {
+	                return std::unexpected(target_res.error());
+	            }
 
-            /* next 0927 */
+	            // index check
+	            auto index_res = this->visit_expr(e.index.get());
+	            if (!index_res) {
+	                return std::unexpected(index_res.error());
+	            }
+
+	            const Value& target_val = target_res.value();
+	            const Value& index_val = index_res.value();
+
+	            // if array
+	            const auto* arr_ptr =
+	                // std::get_if<std::vector<Value>>(&array_res.value().data);
+	                std::get_if<std::shared_ptr<Array>>(
+	                    &target_res.value().data);
+	            if (!arr_ptr) {
+	                return std::unexpected(dara::error::InterpreterError{
+	                    "Only arrays can be indexed", expr->span});
+	            }
+
+	            // if map
+	            const auto* map_ptr =
+	                // std::get_if<std::vector<Value>>(&array_res.value().data);
+	                std::get_if<std::shared_ptr<Map>>(&target_res.value().data);
+	            if (!map_ptr) {
+	                return std::unexpected(dara::error::InterpreterError{
+	                    "Only maps can be indexed", expr->span});
+	            }
+
+	            if (*arr_ptr != nullptr) {
+	                Array* raw_array = (*arr_ptr).get();
+	                const auto* index_ptr =
+	                    std::get_if<int>(&index_res.value().data);
+	                if (!index_ptr) {
+	                    return std::unexpected(dara::error::InterpreterError{
+	                        "Array index must be integer"});
+	                }
+	                int index = *index_ptr;
+	                int arr_size = static_cast<int>(raw_array->size());
+
+	                if (index < 0 || index >= arr_size) {
+	                    return std::unexpected(dara::error::InterpreterError{
+	                        "Array index out of bounds: " +
+	                            std::to_string(index) + " (size is " +
+	                            std::to_string(arr_size) + ")",
+	                        expr->span});
+	                }
+	                // return (*arr_ptr)[index];
+	                return (*raw_array)[index];
+	            } else {
+	                return std::unexpected(
+	                    dara::error::InterpreterError{"Array is Nil."});
+	            }
+	        },
+	        */
 	        //[this, expr](const IdentifierExpr& e) -> Result<Value> {
 	        [this, expr](const VarExpr& e) -> Result<Value> {
 		        // auto val_opt = this->env.get(e.name);
@@ -1300,10 +1403,14 @@ Result<Value> Interpreter::visit_expr(const Expr* expr) {
 		                [&, expr](
 		                    std::shared_ptr<dara::backend::Callable> callable)
 		                    -> Result<Value> {
-			                if (arguments.size() != callable->arity()) {
+			                // if (callable->arity() != -1) {
+			                if (arguments.size() != callable->arity() &&
+			                    callable->arity() != -1) {  //( 1017 )
+				                // if (arguments.size() != callable->arity() ||
+				                // callable->arity() != -1 ) { //( 1017 )
 				                return std::unexpected(
 				                    dara::error::InterpreterError{
-				                        "Expected " +
+				                        "Expected_ " +
 				                            std::to_string(callable->arity()) +
 				                            " argument but got " +
 				                            std::to_string(arguments.size()) +
@@ -1314,7 +1421,8 @@ Result<Value> Interpreter::visit_expr(const Expr* expr) {
 			                if (!call_res) {
 				                // auto call_res_err = call_res.error();
 				                // call_res_err.span = expr->span;
-				                return std::unexpected(call_res.error().enrich_span(expr->span));
+				                return std::unexpected(
+				                    call_res.error().enrich_span(expr->span));
 			                }
 			                return call_res;
 		                },
@@ -1334,12 +1442,13 @@ Result<Value> Interpreter::visit_expr(const Expr* expr) {
 
 			                auto call_res = cls->call(*this, arguments);
 			                if (!call_res) {
-				                //auto call_res_err = call_res.error();
-				                //call_res_err.span = expr->span;
-				                //return std::unexpected(call_res_err);
-				                return std::unexpected(call_res.error().enrich_span(expr->span));
+				                // auto call_res_err = call_res.error();
+				                // call_res_err.span = expr->span;
+				                // return std::unexpected(call_res_err);
+				                return std::unexpected(
+				                    call_res.error().enrich_span(expr->span));
 			                }
-                            return call_res;
+			                return call_res;
 			                // return cls->call(*this, arguments);
 
 			                /*
@@ -1416,11 +1525,13 @@ Result<Value> Interpreter::visit_expr(const Expr* expr) {
 		                    -> Result<Value> {
 			                auto inst_res = instance->get(*this, e.name.lexeme);
 			                if (!inst_res) {
-				                //auto inst_err = inst_res.error();
-				                //inst_err.span = expr->span;
-				                //return std::unexpected(inst_err);
-				                //return std::unexpected(inst_res.error().enrich_span(expr->span));
-				                return std::unexpected(inst_res.error().enrich_span(e.name.span));
+				                // auto inst_err = inst_res.error();
+				                // inst_err.span = expr->span;
+				                // return std::unexpected(inst_err);
+				                // return
+				                // std::unexpected(inst_res.error().enrich_span(expr->span));
+				                return std::unexpected(
+				                    inst_res.error().enrich_span(e.name.span));
 			                }
 			                return inst_res;
 		                },
@@ -1436,6 +1547,237 @@ Result<Value> Interpreter::visit_expr(const Expr* expr) {
 			                }
 			                return cls_res;
 		                },
+		                //[&](Array* array) -> Result<Value> {
+		                /*
+		                 [&](Array array) -> Result<Value> {
+		                     if (e.name.lexeme == "size") {
+		                         return Value{
+		                             .data = static_cast<int>(array.size())};
+		                     }
+		                     return std::unexpected(
+		                         dara::error::InterpreterError(
+		                             "Array does not have proterty '" +
+		                                 e.name.lexeme + "'.",
+		                             e.name.span));
+		                 },
+		                 */
+		                [&](std::shared_ptr<Array> array) -> Result<Value> {
+			                if (e.name.lexeme == "size") {
+				                return Value{
+				                    .data = static_cast<int>(array->size())};
+			                }
+			                if (e.name.lexeme == "push") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    push_method = std::allocate_shared<
+				                        dara::backend::BuiltinArrayPush>(
+				                        this->alloc, array);
+				                // return Value{.data = std::allocate_shared<
+				                //           dara::backend::BuiltinNow>(
+				                //           this->alloc, array)};
+				                return Value{.data = std::move(push_method)};
+			                }
+			                if (e.name.lexeme == "pop") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    pop_method = std::allocate_shared<
+				                        dara::backend::BuiltinArrayPop>(
+				                        this->alloc, array);
+				                return Value{.data = std::move(pop_method)};
+			                }
+			                if (e.name.lexeme == "index") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    index_method = std::allocate_shared<
+				                        dara::backend::BuiltinArrayIndex>(
+				                        this->alloc, array);
+				                return Value{.data = std::move(index_method)};
+			                }
+			                if (e.name.lexeme == "clear") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    clear_method = std::allocate_shared<
+				                        dara::backend::BuiltinArrayClear>(
+				                        this->alloc, array);
+				                return Value{.data = std::move(clear_method)};
+			                }
+
+			                if (e.name.lexeme == "insert") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    insert_method = std::allocate_shared<
+				                        dara::backend::BuiltinArrayInsert>(
+				                        this->alloc, array);
+				                return Value{.data = std::move(insert_method)};
+			                }
+
+			                if (e.name.lexeme == "map") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    map_method = std::allocate_shared<
+				                        dara::backend::BuiltinArrayMap>(
+				                        this->alloc, array);
+				                return Value{.data = std::move(map_method)};
+			                }
+
+			                if (e.name.lexeme == "filter") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    filter_method = std::allocate_shared<
+				                        dara::backend::BuiltinArrayFilter>(
+				                        this->alloc, array);
+				                return Value{.data = std::move(filter_method)};
+			                }
+
+			                if (e.name.lexeme == "reduce") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    filter_method = std::allocate_shared<
+				                        dara::backend::BuiltinArrayReduce>(
+				                        this->alloc, array);
+				                return Value{.data = std::move(filter_method)};
+			                }
+
+			                if (e.name.lexeme == "clone") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    clone_method = std::allocate_shared<
+				                        dara::backend::BuiltinArrayClone>(
+				                        this->alloc, array);
+				                return Value{.data = std::move(clone_method)};
+			                }
+
+			                return std::unexpected(
+			                    dara::error::InterpreterError(
+			                        "Array does not have proterty '" +
+			                            e.name.lexeme + "'.",
+			                        e.name.span));
+		                },
+		                [&](std::shared_ptr<Map> map) -> Result<Value> {
+			                if (e.name.lexeme == "clear") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    clear_method = std::allocate_shared<
+				                        dara::backend::BuiltinMapClear>(
+				                        this->alloc, map);
+				                return Value{.data = std::move(clear_method)};
+			                }
+			                if (e.name.lexeme == "has") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    has_method = std::allocate_shared<
+				                        dara::backend::BuiltinMapHas>(
+				                        this->alloc, map);
+				                return Value{.data = std::move(has_method)};
+			                }
+			                if (e.name.lexeme == "keys") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    keys_method = std::allocate_shared<
+				                        dara::backend::BuiltinMapKeys>(
+				                        this->alloc, map);
+				                return Value{.data = std::move(keys_method)};
+			                }
+			                if (e.name.lexeme == "values") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    values_method = std::allocate_shared<
+				                        dara::backend::BuiltinMapValues>(
+				                        this->alloc, map);
+				                return Value{.data = std::move(values_method)};
+			                }
+			                if (e.name.lexeme == "get") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    get_method = std::allocate_shared<
+				                        dara::backend::BuiltinMapGet>(
+				                        this->alloc, map);
+				                return Value{.data = std::move(get_method)};
+			                }
+			                if (e.name.lexeme == "clone") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    clone_method = std::allocate_shared<
+				                        dara::backend::BuiltinMapClone>(
+				                        this->alloc, map);
+				                return Value{.data = std::move(clone_method)};
+			                }
+
+			                return std::unexpected(
+			                    dara::error::InterpreterError(
+			                        "Map does not have proterty '" +
+			                            e.name.lexeme + "'.",
+			                        e.name.span));
+		                },
+		                [&](String str) -> Result<Value> {
+                            
+			                if (e.name.lexeme == "contains") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    contains_method = std::allocate_shared<
+				                        dara::backend::BuiltinStringContains>(
+				                        this->alloc, str);
+				                return Value{.data =
+				                                 std::move(contains_method)};
+			                }
+                            
+                            //return dara::backend::get_string_property(*this, str, e.name);
+
+			                if (e.name.lexeme == "length") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    length_method = std::allocate_shared<
+				                        dara::backend::BuiltinStringLength>(
+				                        this->alloc, str);
+				                return Value{.data = std::move(length_method)};
+			                }
+			                if (e.name.lexeme == "starts_with") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    startswith_method = std::allocate_shared<
+				                        dara::backend::BuiltinStringStartsWith>(
+				                        this->alloc, str);
+				                return Value{.data =
+				                                 std::move(startswith_method)};
+			                }
+			                if (e.name.lexeme == "ends_with") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    endswith_method = std::allocate_shared<
+				                        dara::backend::BuiltinStringEndsWith>(
+				                        this->alloc, str);
+				                return Value{.data =
+				                                 std::move(endswith_method)};
+			                }
+			                if (e.name.lexeme == "substring") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    substring_method = std::allocate_shared<
+				                        dara::backend::BuiltinStringSubstring>(
+				                        this->alloc, str);
+				                return Value{.data =
+				                                 std::move(substring_method)};
+			                }
+			                if (e.name.lexeme == "split") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    split_method = std::allocate_shared<
+				                        dara::backend::BuiltinStringSplit>(
+				                        this->alloc, str);
+				                return Value{.data =
+				                                 std::move(split_method)};
+			                }
+			                if (e.name.lexeme == "trim") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    split_method = std::allocate_shared<
+				                        dara::backend::BuiltinStringTrim>(
+				                        this->alloc, str);
+				                return Value{.data =
+				                                 std::move(split_method)};
+			                }
+			                if (e.name.lexeme == "to_upper") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    upper_method = std::allocate_shared<
+				                        dara::backend::BuiltinStringToUpper>(
+				                        this->alloc, str);
+				                return Value{.data =
+				                                 std::move(upper_method)};
+			                }
+			                if (e.name.lexeme == "to_lower") {
+				                std::shared_ptr<dara::backend::Callable>
+				                    lower_method = std::allocate_shared<
+				                        dara::backend::BuiltinStringToLower>(
+				                        this->alloc, str);
+				                return Value{.data =
+				                                 std::move(lower_method)};
+			                }
+
+			                return std::unexpected(
+			                    dara::error::InterpreterError(
+			                        "String does not have proterty '" +
+			                            e.name.lexeme + "'.",
+			                        e.name.span));
+		                },
+
 		                // 3. それ以外の型にはドットアクセス不可
 		                [&](auto&&) -> Result<Value> {
 			                return std::unexpected(

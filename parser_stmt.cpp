@@ -267,9 +267,10 @@ std::unexpected(s->make_error("not '{'"));
 }
 */
 
-/* brace_stmt in parser_stmt.cpp */
+/* block_stmt in parser_stmt.cpp */
 std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError>
-Parser::brace_stmt() {
+//Parser::brace_stmt() {
+Parser::block_stmt() {
 	size_t start = s->get_current();
 	// int line = s->line;
 	// int col = s->col;
@@ -310,7 +311,8 @@ Parser::else_stmt() {
 	// size_t start = s->get_current();
 	//  int line = this->s->line;
 	//  int col = this->s->col;
-	auto then_res = this->brace_stmt();
+	//auto then_res = this->brace_stmt();
+	auto then_res = this->block_stmt();
 	if (!then_res) {
 		return std::unexpected(then_res.error());  //(***)
 	}
@@ -339,14 +341,16 @@ Parser::if_stmt() {
 		return std::unexpected(condition_res.error());
 	}
 
-	auto then_res = this->brace_stmt();
+	//auto then_res = this->brace_stmt();
+	auto then_res = this->block_stmt();
 	if (!then_res) {
 		return std::unexpected(then_res.error());
 	}
 
 	std::unique_ptr<Stmt> else_res = nullptr;
 	if (Else(this->s)) {
-		auto else_block_res = this->brace_stmt();  //(*)
+		//auto else_block_res = this->brace_stmt();  //(*)
+		auto else_block_res = this->block_stmt();  //(*)
 		if (!else_block_res) return std::unexpected(else_block_res.error());
 		else_res = std::move(else_block_res.value());
 	}
@@ -377,7 +381,8 @@ Parser::while_stmt() {
 
 	LoopDepthGuard guard(this->loop_depth);
 
-	auto body_res = this->brace_stmt();
+	//auto body_res = this->brace_stmt();
+	auto body_res = this->block_stmt();
 	if (!body_res) {
 		return std::unexpected(body_res.error());
 	}
@@ -440,7 +445,8 @@ Parser::forin_stmt() {
 
 	LoopDepthGuard guard(this->loop_depth);
 
-	auto body_res = this->brace_stmt();
+	//auto body_res = this->brace_stmt();
+	auto body_res = this->block_stmt();
 	if (!body_res) {
 		return std::unexpected(body_res.error());
 	}
@@ -622,7 +628,8 @@ std::expected<std::unique_ptr<Stmt>, dara::error::SyntaxError> Parser::stmt() {
 
 	if (LBrace(this->s)) {
 		*(this->s) = backup;
-		return this->brace_stmt();
+		//return this->brace_stmt();
+		return this->block_stmt();
 	}
 
 	/*

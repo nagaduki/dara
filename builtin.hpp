@@ -2,10 +2,10 @@
 #include <chrono>
 #include <set>
 
-#include "class.hpp"
-#include "instance.hpp"
 #include "callable.hpp"
+#include "class.hpp"
 #include "error.hpp"
+#include "instance.hpp"
 #include "value.hpp"
 
 namespace dara::backend {
@@ -13,10 +13,33 @@ namespace dara::backend {
 class BuiltinClock : public Callable {
    public:
 	size_t arity() const override { return 0; }
-	std::string to_string() const override { return "<native fn len>"; }
+	std::string to_string() const override { return "<native fn clock>"; }
 	std::expected<Value, dara::error::InterpreterError> call(
-	    Interpreter& interpreter,
-	    const std::vector<Value>& arguments) override;
+	    Interpreter& interpreter, const std::vector<Value>& arguments) override;
+};
+
+class BuiltinDate : public Callable {
+   public:
+	size_t arity() const override { return 0; }
+	std::string to_string() const override { return "<native fn date>"; }
+	std::expected<Value, dara::error::InterpreterError> call(
+	    Interpreter& interpreter, const std::vector<Value>& arguments) override;
+};
+
+class BuiltinTime : public Callable {
+   public:
+	size_t arity() const override { return 0; }
+	std::string to_string() const override { return "<native fn time>"; }
+	std::expected<Value, dara::error::InterpreterError> call(
+	    Interpreter& interpreter, const std::vector<Value>& arguments) override;
+};
+
+class BuiltinNow : public Callable {
+   public:
+	size_t arity() const override { return 0; }
+	std::string to_string() const override { return "<native fn now>"; }
+	std::expected<Value, dara::error::InterpreterError> call(
+	    Interpreter& interpreter, const std::vector<Value>& arguments) override;
 };
 
 class BuiltinLen : public Callable {
@@ -65,32 +88,50 @@ class BuiltinId : public Callable {
 };
 
 class BuiltinIs_A : public Callable {
-public:
-    size_t arity() const override { return 2; }
-    std::expected<Value, dara::error::InterpreterError> call( Interpreter& interpreter, const std::vector<Value>& arguments) override;
-    std::string to_string() const override { return "<native fn is_a>"; }
-private:
-    bool check_inheritance(std::shared_ptr<dara::backend::Class> current, std::shared_ptr<dara::backend::Class> target);
+   public:
+	size_t arity() const override { return 2; }
+	std::expected<Value, dara::error::InterpreterError> call(
+	    Interpreter& interpreter, const std::vector<Value>& arguments) override;
+	std::string to_string() const override { return "<native fn is_a>"; }
+
+   private:
+	bool check_inheritance(std::shared_ptr<dara::backend::Class> current,
+	                       std::shared_ptr<dara::backend::Class> target);
 };
 
 class BuiltinIs_Proper : public Callable {
-public:
-    size_t arity() const override { return 2; }
-    std::expected<Value, dara::error::InterpreterError> call( Interpreter& interpreter, const std::vector<Value>& arguments) override;
-    std::string to_string() const override { return "<native fn is_proper>"; }
-private:
-    bool check_inheritance(std::shared_ptr<dara::backend::Class> current, std::shared_ptr<dara::backend::Class> target);
+   public:
+	size_t arity() const override { return 2; }
+	std::expected<Value, dara::error::InterpreterError> call(
+	    Interpreter& interpreter, const std::vector<Value>& arguments) override;
+	std::string to_string() const override { return "<native fn is_proper>"; }
+
+   private:
+	bool check_inheritance(std::shared_ptr<dara::backend::Class> current,
+	                       std::shared_ptr<dara::backend::Class> target);
 };
 
 class BuiltinRequire : public Callable {
-public:
-    size_t arity() const override { return 1; }
-    std::expected<Value, dara::error::InterpreterError> call( Interpreter& interpreter, const std::vector<Value>& arguments) override;
-    std::string to_string() const override { return "<native fn require>"; }
-private:
-    bool check_inheritance(std::shared_ptr<dara::backend::Class> current, std::shared_ptr<dara::backend::Class> target);
+   public:
+	size_t arity() const override { return 1; }
+	std::expected<Value, dara::error::InterpreterError> call(
+	    Interpreter& interpreter, const std::vector<Value>& arguments) override;
+	std::string to_string() const override { return "<native fn require>"; }
 
+   private:
+	bool check_inheritance(std::shared_ptr<dara::backend::Class> current,
+	                       std::shared_ptr<dara::backend::Class> target);
 };
 
+// med
+/*
+class BuiltinCcr : public Callable {
+   public:
+	size_t arity() const override { return 4; }
+	std::string to_string() const override { return "<native fn ccr>"; }
+	std::expected<Value, dara::error::InterpreterError> call(
+	    Interpreter& interpreter, const std::vector<Value>& arguments) override;
+};
+*/
 
 }  // namespace dara::backend

@@ -239,4 +239,22 @@ Rule<T> operator-(const Rule<T>& p) {
 	return apply<T, T>(std::negate<T>(), p);
 }
 
+template <typename T1, typename F>
+auto operator|(const Rule<T1>& p, F f) {
+	//using T2 = std::invoke_result_t<F, T1>;
+	using T2 = decltype(f(std::declval<T1>()));
+
+    Rule<T2> np = [=](Source* s) -> std::expected<T2, dara::error::SyntaxError> {
+		Source backup = *s;
+		auto res = p(s);
+		if (!res) {
+			*s = backup;
+			//return std::expected<T2, dara::error::SyntaxError>(std::unexpected(res.error()));
+			return std::unexpected(res.error());
+		}
+		return f(res.value());
+	};
+    return np;
+}
+
 }  // namespace dara::combinator
