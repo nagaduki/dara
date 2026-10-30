@@ -11,6 +11,11 @@
 namespace dara::backend {
 
 
+// dispatcher
+std::expected<Value, dara::error::InterpreterError> get_map_property(
+    Interpreter& interpreter, const std::shared_ptr<Map> map,
+    const dara::ast::Identifier& name);
+
 // Map
 class BuiltinMapHas : public Callable {
    public:

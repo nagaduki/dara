@@ -83,7 +83,7 @@ inline dara::combinator::Rule<char> Pos =
 inline dara::combinator::Rule<char> Neg =
     dara::combinator::satisfy(isNeg) || dara::combinator::left("not '-'");
 inline dara::combinator::Rule<char> Not =
-    dara::combinator::satisfy(isNeg) || dara::combinator::left("not '!'");
+    dara::combinator::satisfy(isNot) || dara::combinator::left("not '!'");
 
 
 bool isChar(char ch, char c);

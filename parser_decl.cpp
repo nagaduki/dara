@@ -59,7 +59,7 @@ Parser::var_decl() {
 	*/
 
 	if (!Semicolon(this->s)) {
-		//PRINT_LINE();
+		// PRINT_LINE();
 		return std::unexpected(this->s->make_error(
 		    "expected ';' at the end of let statement."));  //(*)
 	}
@@ -213,13 +213,89 @@ Parser::class_decl() {
 		    this->s->make_error("Expected '{' before class body"));
 	}
 
+	std::vector<FieldDecl> fields;
 	std::vector<MethodDecl> methods;
 	std::vector<MethodDecl> static_methods;
 
 	// this->s->skip_whitespace();
 	while (!RBrace(this->s) && !this->s->isEnd()) {
-		size_t method_start = s->get_current();
-		//std::string method_name;
+		this->s->skip_whitespace();
+		// size_t method_start = s->get_current();
+		size_t member_start = s->get_current();
+		// std::string method_name;
+		// Identifier method_name;
+		Identifier field_name;
+		// bool is_static = false;
+		/*
+
+*       */
+		if (Let(this->s)) {
+			this->s->skip_whitespace();
+			auto field_name_res = identifier(this->s);
+			if (!field_name_res) {
+				return std::unexpected(
+				    this->s->make_error("Expected field name after 'let'"));
+			}
+			for (const auto& existing_f : fields) {
+				if (existing_f.name.lexeme == field_name_res->lexeme) {
+					return std::unexpected(this->s->make_error(
+					    "duplicate field '" + field_name_res->lexeme +
+					    "' in class '" + class_name.lexeme + "'"));
+				}
+			}
+			for (const auto& existing_m : methods) {
+				if (existing_m.name.lexeme == field_name_res->lexeme) {
+					return std::unexpected(this->s->make_error(
+					    "field '" + field_name_res->lexeme +
+					    "' conflicts wtih method off the same name in class '" +
+					    class_name.lexeme + "'"));
+				}
+			}
+
+			this->s->skip_whitespace();
+			// dara::ast::Expr
+			std::unique_ptr<Expr> initializer = nullptr;
+			if (Assign(this->s)) {
+				this->s->skip_whitespace();
+				auto expr_res = this->expr();
+				if (!expr_res) {
+					return std::unexpected(expr_res.error());
+				}
+				initializer = std::move(expr_res.value());
+			}
+			if (!Semicolon(this->s)) {
+				return std::unexpected(this->s->make_error(
+				    "expected ';' at the end of let statement in class"));
+			}
+			size_t field_end = s->get_current();
+
+			field_name = field_name_res.value();
+
+			// auto field_stmt_node = std::make_unique<Decl>();
+			// size_t method_end = s->get_current();
+
+			// field_stmt_node =
+			// FunctionExpr{std::move(parameters), std::move(body)};
+			// dara::ast::FieldDecl{.name = std::move(field_name_res->lexeme),
+			//                      .initializer = std::move(initializer)};
+			// field_stmt_node->span = Span{method_start, method_end};
+
+			// fields.push_back(field_stmt_node.value());
+
+			fields.push_back(dara::ast::FieldDecl{
+			    .name = std::move(field_name_res.value()),
+			    .initializer = std::move(initializer),
+			    .span = Span{member_start, field_end, this->s->get_id()}});
+
+			// auto fn_expr_node = std::make_unique<Expr>();
+			// fn_expr_node->value =
+			//     FunctionExpr{std::move(parameters), std::move(body)};
+			// fn_expr_node->span = Span{method_start, method_end};
+			continue;
+		}
+		/*
+
+*       */
 		Identifier method_name;
 		bool is_static = false;
 
@@ -258,12 +334,23 @@ Parser::class_decl() {
 			}
 			method_name = method_name_res.value();
 
-			//if (method_name != class_name) {
+			// if (method_name != class_name) {
 			if (method_name.lexeme != class_name.lexeme) {
 				return std::unexpected(this->s->make_error(
 				    "Missing 'fn' for method, or constructor name '" +
-				    method_name.lexeme + "' does not match class name '" + class_name.lexeme +
-				    "'"));
+				    method_name.lexeme + "' does not match class name '" +
+				    class_name.lexeme + "'"));
+			}
+		}
+
+		if (!is_static && method_name.lexeme != class_name.lexeme) {
+			for (const auto& existing_f : fields) {
+				if (existing_f.name.lexeme == method_name.lexeme) {
+					return std::unexpected(this->s->make_error(
+					    "method '" + method_name.lexeme +
+					    "' confilict with field of the same name in class '" +
+					    class_name.lexeme + "'"));
+				}
 			}
 		}
 
@@ -272,7 +359,7 @@ Parser::class_decl() {
 			    this->s->make_error("Expected '(' after method name"));
 		}
 
-		//std::vector<std::string> parameters;
+		// std::vector<std::string> parameters;
 		std::vector<dara::ast::Identifier> parameters;
 		if (!RParen(this->s)) {
 			do {
@@ -291,7 +378,7 @@ Parser::class_decl() {
 		FunctionDepthGuard guard(this->function_depth, this->loop_depth);
 
 		//  1. 実績のある block_stmt() に '{ ... }' のパースを丸投げする
-		//auto block_res = this->brace_stmt();
+		// auto block_res = this->brace_stmt();
 		auto block_res = this->block_stmt();
 		if (!block_res) {
 			return std::unexpected(block_res.error());
@@ -307,18 +394,24 @@ Parser::class_decl() {
 		    std::move(block_stmt.declarations);
 
 		size_t method_end = s->get_current();
+		Span member_span{member_start, method_end, this->s->get_id()};
 
 		auto fn_expr_node = std::make_unique<Expr>();
 		fn_expr_node->value =
 		    FunctionExpr{std::move(parameters), std::move(body)};
-		fn_expr_node->span = Span{method_start, method_end};
+		// fn_expr_node->span = Span{method_start, method_end};
+		fn_expr_node->span = member_span;
+
+		// method regist phase
 		if (is_static) {
 			static_methods.push_back(
 			    MethodDecl{.name = std::move(method_name),
-			               .function = std::move(fn_expr_node)});
+			               .function = std::move(fn_expr_node),
+			               .span = member_span});
 		} else {
 			methods.push_back(MethodDecl{.name = std::move(method_name),
-			                             .function = std::move(fn_expr_node)});
+			                             .function = std::move(fn_expr_node),
+			                             .span = member_span});
 		}
 		// this->s->skip_whitespace();
 	}
@@ -327,13 +420,15 @@ Parser::class_decl() {
 	    ClassDecl{.name = std::move(class_name),
 	              .super = std::move(super),
 	              .mixins = std::move(mixins),
+	              .fields = std::move(fields),  // fix
 	              .methods = std::move(methods),
 	              .static_methods = std::move(static_methods)};
 
 	end = s->get_current();
 	// Decl にラップして、std::expected (Result) として返す
 	return std::make_unique<Decl>(
-	    Decl{.value = std::move(class_decl_node), .span = Span{start, end}});
+	    Decl{.value = std::move(class_decl_node),
+	         .span = Span{start, end, this->s->get_id()}});
 }
 
 std::expected<std::unique_ptr<Decl>, dara::error::SyntaxError> Parser::decl() {

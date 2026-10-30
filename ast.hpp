@@ -92,7 +92,16 @@ struct MethodDecl {
 	//std::string name;
     dara::ast::Identifier name;
 	std::unique_ptr<Expr> function;
+    dara::core::Span span;
 };
+
+struct FieldDecl {
+	//std::string name;
+    dara::ast::Identifier name;
+	std::unique_ptr<Expr> initializer;
+    dara::core::Span span;
+};
+
 
 struct Decl;
 
@@ -108,6 +117,7 @@ struct ClassDecl {
     dara::ast::Identifier name;
 	std::unique_ptr<Expr> super;
 	std::vector<std::unique_ptr<Expr>> mixins;
+	std::vector<FieldDecl> fields;
 	std::vector<MethodDecl> methods;
 	std::vector<MethodDecl> static_methods;
 };

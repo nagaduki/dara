@@ -108,15 +108,19 @@ std::expected<Value, dara::error::InterpreterError> BuiltinLen::call(
 	    dara::error::InterpreterError("Arguments must be an vector"));
 	*/
 	return std::visit(
-	    overloaded{[](const Array& arr) -> Result<Value> {
-		               return Value{static_cast<int>(arr.size())};
+	    //overloaded{[](const std::shared_ptr<Array& arr) -> Result<Value> {
+	    overloaded{[](const std::shared_ptr<Array> arr) -> Result<Value> {
+		               return Value{static_cast<int>(arr->size())};
 	               },
 	               [](const String& str) -> Result<Value> {
 		               return Value{static_cast<int>(str.length())};
 	               },
+	               [](const std::shared_ptr<Map> map) -> Result<Value> {
+		               return Value{static_cast<int>(map->size())};
+	               },
 	               [](auto&&) -> Result<Value> {
 		               return std::unexpected(dara::error::InterpreterError(
-		                   "Argument must be an Array or String"));
+		                   "Argument must be an Array, Map or String"));
 	               }},
 	    arg.data);
 }
@@ -155,7 +159,13 @@ std::expected<Value, dara::error::InterpreterError> BuiltinType::call(
 	        [&](const Array&) -> Result<Value> {
 		        return Value{String("Array", interpreter.get_allocator())};
 	        },
+	        [&](const std::shared_ptr<Array>) -> Result<Value> {
+		        return Value{String("Array", interpreter.get_allocator())};
+	        },
 	        [&](const Map&) -> Result<Value> {
+		        return Value{String("Map", interpreter.get_allocator())};
+	        },
+	        [&](const std::shared_ptr<Map>) -> Result<Value> {
 		        return Value{String("Map", interpreter.get_allocator())};
 	        },
 	        [&](auto&&) -> Result<Value> {

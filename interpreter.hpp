@@ -203,7 +203,6 @@ class Interpreter {
 		    //Value{.data = std::make_shared<dara::backend::BuiltinClock>()});
 		    Value{.data = std::allocate_shared<dara::backend::BuiltinNow>(this->alloc)});
 
-
 		// this->env->define(
 		this->globals->define(
 		    "len",

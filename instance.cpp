@@ -6,6 +6,7 @@
 #include "ast.hpp"
 #include "callable.hpp"
 #include "class.hpp"
+#include "error.hpp"
 
 namespace dara::backend {
 
@@ -16,6 +17,12 @@ Result<Value> Instance::get(Interpreter& interpreter, const std::string& name) {
 	// if (this->fields.contains(name)) {
 	if (this->fields.contains(name)) {
 		return fields.at(name);
+	}
+
+	if (this->cls && this->cls->has_field(name)) {
+		return std::unexpected(dara::error::InterpreterError(
+		    "fields '" + name + "' on class '" + this->cls->name +
+		    "' is not initialized"));
 	}
 
 	// Value method_val = this->cls->find_method(name);

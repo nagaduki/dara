@@ -22,12 +22,12 @@
 #include "error.hpp"
 #include "instance.hpp"
 // #include "native_function.hpp"
-#include "builtin.hpp"
-#include "string.hpp"
-#include "map.hpp"
 #include "array.hpp"
+#include "builtin.hpp"
 #include "environment.hpp"
+#include "map.hpp"
 #include "parser.hpp"
+#include "string.hpp"
 
 #define PRINT_LINE() \
 	std::cout << "Line: " << __LINE__ << " (in " << __FILE__ << ")" << std::endl
@@ -129,7 +129,7 @@ Result<Value> Interpreter::load_module(const std::string& path) {
 	auto dummy_class = std::allocate_shared<dara::backend::Class>(
 	    this->alloc, "Module_" + path, nullptr,
 	    std::vector<std::shared_ptr<dara::backend::Class>>{},
-	    std::unordered_map<std::string, Value>{},
+	    // std::unordered_map<std::string, Value>{},
 	    std::unordered_map<std::string, Value>{});
 	auto module_instance =
 	    // std::make_shared<dara::backend::Instance>(dummy_class);
@@ -232,50 +232,183 @@ Result<void> Interpreter::visit_decl(const Decl* decl) {
 		        }
 
 		        // method
+		        // std::unordered_set<std::string, Value> fields;
+		        std::unordered_set<std::string> fields;
+		        std::vector<std::pair<std::string, const dara::ast::Expr*>>
+		            field_initializers;
+
+		        //
+		        if (super) {
+			        fields.insert(super->fields.begin(), super->fields.end());
+			        field_initializers.insert(field_initializers.end(),
+			                                  super->field_initializers.begin(),
+			                                  super->field_initializers.end());
+		        }
+
+		        for (const auto& mixin : mixins) {
+			        if (!mixin) {
+				        continue;
+			        }
+			        for (const auto& mixin_field : mixin->fields) {
+				        if (fields.contains(mixin_field)) {
+					        return std::unexpected(
+					            dara::error::InterpreterError(
+					                "conflicting field '" + mixin_field +
+					                    "' from mixin '" + mixin->name +
+					                    "' in class '" + d.name.lexeme,
+					                decl->span));
+				        }
+				        fields.insert(mixin_field);
+			        }
+			        field_initializers.insert(field_initializers.end(),
+			                                  mixin->field_initializers.begin(),
+			                                  mixin->field_initializers.end());
+		        }
+
+		        /*
+		        for (const auto& field_decl : d.fields) {
+		            fields.insert(field_decl.name.lexeme);
+		            if (field_decl.initializer != nullptr) {
+		                field_initializers.emplace_back(
+		                    field_decl.name.lexeme,
+		                    field_decl.initializer.get());
+		            }
+		        }
+		        */
+		        for (const auto& field_decl : d.fields) {
+			        const std::string& this_field = field_decl.name.lexeme;
+			        if (fields.contains(this_field)) {
+				        return std::unexpected(dara::error::InterpreterError(
+				            "field '" + this_field + "' in class '" +
+				                d.name.lexeme +
+				                "' is already declared in superclass or mixin "
+				                "'" +
+				                d.name.lexeme,
+				            field_decl.span));
+			        }
+			        fields.insert(this_field);
+
+			        if (field_decl.initializer != nullptr) {
+				        field_initializers.emplace_back(
+				            this_field, field_decl.initializer.get());
+			        }
+		        }
+
+		        OverloadedConstructor constructors;
 		        std::unordered_map<std::string, Value> methods;
+
+		        /*
+		        for (const auto& method_decl : d.methods) {
+		            if (auto* fn_expr = std::get_if<FunctionExpr>(
+		                    &method_decl.function->value)) {
+		                auto function =
+		                    // std::make_shared<dara::backend::Function>(
+		                    std::allocate_shared<dara::backend::Function>(
+		                        // fn_expr, this->env);
+		                        this->alloc, fn_expr, this->env);
+
+		                methods[method_decl.name.lexeme] = Value{function};
+		            } else {
+		                // throw dara::error::InterpreterError( "method body
+		                // must be FunctionExpr");
+		                return std::unexpected(dara::error::InterpreterError(
+		                    "Method body must be a FunctionExpr", decl->span));
+		            }
+		        }
+		        */
+		        // overloaded constructor generate.
 		        for (const auto& method_decl : d.methods) {
 			        if (auto* fn_expr = std::get_if<FunctionExpr>(
 			                &method_decl.function->value)) {
 				        auto function =
-				            // std::make_shared<dara::backend::Function>(
 				            std::allocate_shared<dara::backend::Function>(
-				                // fn_expr, this->env);
 				                this->alloc, fn_expr, this->env);
-
-				        methods[method_decl.name.lexeme] = Value{function};
+				        const std::string& method_name =
+				            method_decl.name.lexeme;
+				        if (method_name == d.name.lexeme) {
+					        if (!constructors.add(function)) {
+						        return std::unexpected(
+						            dara::error::InterpreterError(
+						                "constructor '" + method_name +
+						                    "' taking " +
+						                    std::to_string(function->arity()) +
+						                    " arguments is already defined in "
+						                    "class '" +
+						                    d.name.lexeme + "'",
+						                method_decl.span));
+					        }
+				        } else {
+					        if (methods.contains(method_name)) {
+						        return std::unexpected(
+						            dara::error::InterpreterError(
+						                "duplicate method '" + method_name +
+						                    "' in class '" + d.name.lexeme +
+						                    "'",
+						                method_decl.span));
+					        }
+					        methods[method_name] = Value{function};
+				        }
 			        } else {
-				        // throw dara::error::InterpreterError( "method body
-				        // must be FunctionExpr");
 				        return std::unexpected(dara::error::InterpreterError(
-				            "Method body must be a FunctionExpr", decl->span));
+				            "method body must be a FunctionExpr", decl->span));
 			        }
 		        }
 
 		        // static method
+		        /*
+		        std::unordered_map<std::string, Value> static_methods;
+		        for (const auto& static_method_decl : d.static_methods) {
+		            if (auto* static_fn_expr = std::get_if<FunctionExpr>(
+		                    &static_method_decl.function->value)) {
+		                auto function =
+		                    // std::make_shared<dara::backend::Function>(
+		                    std::allocate_shared<dara::backend::Function>(
+		                        // static_fn_expr, this->env);
+		                        this->alloc, static_fn_expr, this->env);
+
+		                static_methods[static_method_decl.name.lexeme] =
+		                    Value{.data = function};
+		            } else {
+		                //
+		                return std::unexpected(dara::error::InterpreterError(
+		                    "Static Method body must be a FunctionExpr",
+		                    decl->span));
+		            }
+		        }
+		        */
+
 		        std::unordered_map<std::string, Value> static_methods;
 		        for (const auto& static_method_decl : d.static_methods) {
 			        if (auto* static_fn_expr = std::get_if<FunctionExpr>(
 			                &static_method_decl.function->value)) {
+				        const std::string static_method_name =
+				            static_method_decl.name.lexeme;
+				        if (static_methods.contains(static_method_name)) {
+					        return std::unexpected(
+					            dara::error::InterpreterError(
+					                "duplicate static method '" +
+					                    static_method_name + "' in class '" +
+					                    d.name.lexeme + "'",
+					                static_method_decl.span));
+				        }
 				        auto function =
-				            // std::make_shared<dara::backend::Function>(
 				            std::allocate_shared<dara::backend::Function>(
-				                // static_fn_expr, this->env);
 				                this->alloc, static_fn_expr, this->env);
-
-				        static_methods[static_method_decl.name.lexeme] =
+				        static_methods[static_method_name] =
 				            Value{.data = function};
 			        } else {
-				        //
 				        return std::unexpected(dara::error::InterpreterError(
-				            "Static Method body must be a FunctionExpr",
+				            "static method body must be a FunctionExpr",
 				            decl->span));
 			        }
 		        }
+
 		        // auto cls = std::make_shared<dara::backend::Class>(
 		        auto cls = std::allocate_shared<dara::backend::Class>(
 		            this->alloc, d.name.lexeme, std::move(super),
 		            std::move(mixins), std::move(methods),
-		            std::move(static_methods));
+		            std::move(static_methods), std::move(constructors),
+		            std::move(fields), std::move(field_initializers));
 
 		        // cls->super = std::move(super);
 		        // cls->mixins = std::move(mixins);
@@ -283,6 +416,113 @@ Result<void> Interpreter::visit_decl(const Decl* decl) {
 		        this->env->assign(d.name.lexeme, Value{cls});  //(B)
 		        return {};
 	        },
+
+	        /*
+	        // ClassDecl
+	        [this, decl](const ClassDecl& d) -> Result<void> {
+	            //
+	            this->env->define(d.name.lexeme,
+	                              Value{std::monostate{}});  // (A)
+
+	            // super class
+	            std::shared_ptr<dara::backend::Class> super = nullptr;
+	            if (d.super) {
+	                auto super_val = this->visit_expr(d.super.get());
+	                if (!super_val) {
+	                    return std::unexpected(super_val.error());
+	                }
+	                if (auto* class_ptr = std::get_if<
+	                        std::shared_ptr<dara::backend::Class>>(  // (C)
+	                        &super_val->data)) {
+	                    super = *class_ptr;
+	                } else {
+	                    // throw dara::error::InterpreterError("super class must
+	                    // bea class");
+	                    return std::unexpected(dara::error::InterpreterError(
+	                        "superclass must be a class", decl->span));  //(***)
+	                }
+	            } else {
+	                if (d.name.lexeme != "Object") {
+	                    auto obj_val_opt = this->env->get("Object");
+	                    if (obj_val_opt) {
+	                        if (auto* obj_class = std::get_if<
+	                                std::shared_ptr<dara::backend::Class>>(
+	                                &obj_val_opt.value().data)) {
+	                            super = *obj_class;
+	                        }
+	                    }
+	                }
+	            }
+	            // mixi in
+	            std::vector<std::shared_ptr<dara::backend::Class>> mixins;
+	            for (const auto& mixin_expr : d.mixins) {
+	                auto mixin_val = this->visit_expr(mixin_expr.get());
+	                if (!mixin_val) {
+	                    return std::unexpected(mixin_val.error());
+	                }
+	                if (auto* class_ptr =
+	                        std::get_if<std::shared_ptr<dara::backend::Class>>(
+	                            &mixin_val->data)) {
+	                    mixins.push_back(*class_ptr);
+	                } else {
+	                    return std::unexpected(dara::error::InterpreterError(
+	                        "Mixin must be a class", decl->span));
+	                }
+	            }
+
+	            // method
+	            std::unordered_map<std::string, Value> methods;
+	            for (const auto& method_decl : d.methods) {
+	                if (auto* fn_expr = std::get_if<FunctionExpr>(
+	                        &method_decl.function->value)) {
+	                    auto function =
+	                        // std::make_shared<dara::backend::Function>(
+	                        std::allocate_shared<dara::backend::Function>(
+	                            // fn_expr, this->env);
+	                            this->alloc, fn_expr, this->env);
+
+	                    methods[method_decl.name.lexeme] = Value{function};
+	                } else {
+	                    // throw dara::error::InterpreterError( "method body
+	                    // must be FunctionExpr");
+	                    return std::unexpected(dara::error::InterpreterError(
+	                        "Method body must be a FunctionExpr", decl->span));
+	                }
+	            }
+
+	            // static method
+	            std::unordered_map<std::string, Value> static_methods;
+	            for (const auto& static_method_decl : d.static_methods) {
+	                if (auto* static_fn_expr = std::get_if<FunctionExpr>(
+	                        &static_method_decl.function->value)) {
+	                    auto function =
+	                        // std::make_shared<dara::backend::Function>(
+	                        std::allocate_shared<dara::backend::Function>(
+	                            // static_fn_expr, this->env);
+	                            this->alloc, static_fn_expr, this->env);
+
+	                    static_methods[static_method_decl.name.lexeme] =
+	                        Value{.data = function};
+	                } else {
+	                    //
+	                    return std::unexpected(dara::error::InterpreterError(
+	                        "Static Method body must be a FunctionExpr",
+	                        decl->span));
+	                }
+	            }
+	            // auto cls = std::make_shared<dara::backend::Class>(
+	            auto cls = std::allocate_shared<dara::backend::Class>(
+	                this->alloc, d.name.lexeme, std::move(super),
+	                std::move(mixins), std::move(methods),
+	                std::move(static_methods));
+
+	            // cls->super = std::move(super);
+	            // cls->mixins = std::move(mixins);
+
+	            this->env->assign(d.name.lexeme, Value{cls});  //(B)
+	            return {};
+	        },
+	        */
 
 	        [this](const MethodDecl& d) -> Result<void> { return {}; },
 	        [this](const TopLevelStmt& d) -> Result<void> {
@@ -353,6 +593,15 @@ Result<void> Interpreter::visit_stmt(const Stmt* stmt) {
 		        if (auto* instance = std::get_if<
 		                std::shared_ptr<dara::backend::Instance>>(  // D
 		                &obj.data)) {
+			        auto cls = (*instance)->get_class();
+			        if (cls && !cls->has_field(set_stmt.name.lexeme)) {
+				        return std::unexpected(dara::error::InterpreterError{
+				            .message = "underdined field '" +
+				                       set_stmt.name.lexeme + "' on class '" +
+				                       cls->name + "'",
+				            .span = set_stmt.name.span});
+			        }
+
 			        auto val_res = this->visit_expr(set_stmt.value.get());
 			        if (!val_res) {
 				        return std::unexpected(val_res.error());
@@ -856,16 +1105,103 @@ Result<Value> Interpreter::eval_infix(InfixOperator op, const Value& lhs_val,
 				            "unsupported operator for strings"});
 		        }
 	        },
-	        //[op, expr, this](const std::string& l,
+	        // 1026
+	        /*
 	        [op, expr, this](const String& l,
+	                         const Numeric auto& r) -> Result<Value> {
+	            switch (op) {
+	                case InfixOperator::Add: {
+	                    // return Value{l + std::to_string(r)};
+	                    // return Value{l + dara::backend::to_string(Value{r})};
+	                    // std::string l_str =
+	                    // dara::backend::to_string(Value{l});
+	                    String res(l, this->alloc);
+	                    res += dara::backend::to_string(Value{r});
+	                    return Value{std::move(res)};
+	                }
+	                case InfixOperator::EqualEqual:
+	                case InfixOperator::StrictEqual:
+	                    return Value{false};
+	                case InfixOperator::NotEqual:
+	                    return Value{true};
+	                default:
+	                    return std::unexpected(dara::error::InterpreterError{
+	                        "unsupported operator for string and integer"});
+	            }
+	        },
+	        [op, expr, this](const Numeric auto& l,
+	                         // const std::string& r) -> Result<Value> {
+	                         const String& r) -> Result<Value> {
+	            switch (op) {
+	                case InfixOperator::Add: {
+	                    // return Value{std::to_string(l) + r};
+	                    // return Value{dara::backend::to_string(Value{l}) + r};
+	                    std::string l_str = dara::backend::to_string(Value{l});
+	                    String res(l_str, this->alloc);
+	                    res += r;
+	                    return Value{std::move(res)};
+	                }
+	                case InfixOperator::EqualEqual:
+	                case InfixOperator::StrictEqual:
+	                    return Value{false};
+	                case InfixOperator::NotEqual:
+	                    return Value{true};
+	                default:
+	                    return std::unexpected(dara::error::InterpreterError{
+	                        "unsupported operator for integer and string"});
+	            }
+	        },
+	        */
+	        [op](std::shared_ptr<dara::backend::Instance> l,
+	             std::shared_ptr<dara::backend::Instance> r) -> Result<Value> {
+		        // return Value{.data = true};
+		        if (op == InfixOperator::EqualEqual) {
+			        return Value{.data = (l == r)};
+		        }
+		        if (op == InfixOperator::StrictEqual) {
+			        return Value{.data = (l == r)};
+		        }
+		        return std::unexpected(
+		            dara::error::InterpreterError{"unsupported oerator"});
+	        },
+	        [op, expr](
+	            std::shared_ptr<dara::backend::Instance> l,
+	            std::shared_ptr<dara::backend::Class> r) -> Result<Value> {
+		        if (op == InfixOperator::Is) {
+			        return Value{.data = check_inheritance(l->get_class(), r)};
+		        }
+		        if (op == InfixOperator::StrictEqual) {
+			        return Value{.data = (l->get_class() == r)};
+		        }
+		        // return Value{.data = false};
+		        return std::unexpected(
+		            dara::error::InterpreterError{"unsupported operator"});
+	        },
+
+	        // char + any //
+	        [op, this](const char l, const char r) -> Result<Value> {
+		        if (op == InfixOperator::Add) {
+			        std::string r_str = dara::backend::to_string(Value{r});
+			        std::string l_str = dara::backend::to_string(Value{l});
+			        // String str_l = std::basic_string(l, this->alloc);
+			        String res(l_str + r_str, this->alloc);
+			        // res += l;
+			        return Value{std::move(res)};
+		        }
+		        return std::unexpected(dara::error::InterpreterError{
+		            "unsupported oprator",
+		        });
+	        },
+	        [op, expr, this](const char l,
 	                         const Numeric auto& r) -> Result<Value> {
 		        switch (op) {
 			        case InfixOperator::Add: {
+				        std::string l_str = dara::backend::to_string(Value{l});
 				        // return Value{l + std::to_string(r)};
 				        // return Value{l + dara::backend::to_string(Value{r})};
 				        // std::string l_str =
 				        // dara::backend::to_string(Value{l});
-				        String res(l, this->alloc);
+				        String res(l_str, this->alloc);
 				        res += dara::backend::to_string(Value{r});
 				        return Value{std::move(res)};
 			        }
@@ -881,14 +1217,15 @@ Result<Value> Interpreter::eval_infix(InfixOperator op, const Value& lhs_val,
 	        },
 	        [op, expr, this](const Numeric auto& l,
 	                         // const std::string& r) -> Result<Value> {
-	                         const String& r) -> Result<Value> {
+	                         const char r) -> Result<Value> {
 		        switch (op) {
 			        case InfixOperator::Add: {
+				        std::string r_str = dara::backend::to_string(Value{r});
 				        // return Value{std::to_string(l) + r};
 				        // return Value{dara::backend::to_string(Value{l}) + r};
 				        std::string l_str = dara::backend::to_string(Value{l});
 				        String res(l_str, this->alloc);
-				        res += r;
+				        res += r_str;
 				        return Value{std::move(res)};
 			        }
 			        case InfixOperator::EqualEqual:
@@ -902,32 +1239,33 @@ Result<Value> Interpreter::eval_infix(InfixOperator op, const Value& lhs_val,
 		        }
 	        },
 
-	        [op](std::shared_ptr<dara::backend::Instance> l,
-	             std::shared_ptr<dara::backend::Instance> r) -> Result<Value> {
-		        // return Value{.data = true};
-		        if (op == InfixOperator::EqualEqual) {
-			        return Value{.data = (l == r)};
-		        }
-		        if (op == InfixOperator::StrictEqual) {
-			        return Value{.data = (l == r)};
-		        }
-		        return std::unexpected(
-		            dara::error::InterpreterError{"unsupported oerator"});
+	        /*
+	        [op, this](const char l, const auto& r) -> Result<Value> {
+	            if (op == InfixOperator::Add) {
+	                std::string r_str = dara::backend::to_string(Value{r});
+	                // String str_l = std::basic_string(l, this->alloc);
+	                String res(r_str, this->alloc);
+	                res += l;
+	                return Value{std::move(res)};
+	            }
+	            return std::unexpected(dara::error::InterpreterError{
+	                "unsupported oprator",
+	            });
 	        },
-	        /* (***) */
-	        [op, expr](
-	            std::shared_ptr<dara::backend::Instance> l,
-	            std::shared_ptr<dara::backend::Class> r) -> Result<Value> {
-		        if (op == InfixOperator::Is) {
-			        return Value{.data = check_inheritance(l->get_class(), r)};
-		        }
-		        if (op == InfixOperator::StrictEqual) {
-			        return Value{.data = (l->get_class() == r)};
-		        }
-		        // return Value{.data = false};
-		        return std::unexpected(
-		            dara::error::InterpreterError{"unsupported operator"});
+	        [op, this](const auto& l, const char r) -> Result<Value> {
+	            if (op == InfixOperator::Add) {
+	                std::string l_str = dara::backend::to_string(Value{l});
+	                // String str_l = std::basic_string(l, this->alloc);
+	                String res(l_str, this->alloc);
+	                res += r;
+	                return Value{std::move(res)};
+	            }
+	            return std::unexpected(dara::error::InterpreterError{
+	                "unsupported oprator",
+	            });
 	        },
+	        */
+
 	        [op, this](const String& l, const auto& r) -> Result<Value> {
 		        if (op == InfixOperator::Add) {
 			        std::string r_str = dara::backend::to_string(Value{r});
@@ -939,20 +1277,7 @@ Result<Value> Interpreter::eval_infix(InfixOperator op, const Value& lhs_val,
 		            "unsupported oprator",
 		        });
 	        },
-            // char + any //
-	        /*[op, this](const char l, const auto& r) -> Result<Value> {
-		        if (op == InfixOperator::Add) {
-			        std::string r_str = dara::backend::to_string(Value{r});
-			        //String res(l, this->alloc);
-			        String res(l+r_str, this->alloc);
-			        //res += L+r_str;
-			        return Value{std::move(res)};
-		        }
-		        return std::unexpected(dara::error::InterpreterError{
-		            "unsupported oprator",
-		        });
-	        },
-            */
+
 	        [op, this](const auto& l, const String& r) -> Result<Value> {
 		        if (op == InfixOperator::Add) {
 			        std::string l_str = dara::backend::to_string(Value{l});
@@ -1127,7 +1452,7 @@ Result<Value> Interpreter::eval_mixfix(MixfixOperator op,
 
 Result<Value> Interpreter::visit_expr(const Expr* expr) {
 	if (!expr) {
-		// 🌟 エラーになったノードの start が何を持っているか確認！
+		//  エラーになったノードの start が何を持っているか確認！
 		std::cout << "[DEBUG] Error Node Span Start: " << expr->span.start
 		          << "[DEBUG] Error Node Span end: " << expr->span.end
 		          << std::endl;
@@ -1405,9 +1730,7 @@ Result<Value> Interpreter::visit_expr(const Expr* expr) {
 		                    -> Result<Value> {
 			                // if (callable->arity() != -1) {
 			                if (arguments.size() != callable->arity() &&
-			                    callable->arity() != -1) {  //( 1017 )
-				                // if (arguments.size() != callable->arity() ||
-				                // callable->arity() != -1 ) { //( 1017 )
+			                    callable->arity() != -1) {
 				                return std::unexpected(
 				                    dara::error::InterpreterError{
 				                        "Expected_ " +
@@ -1429,7 +1752,9 @@ Result<Value> Interpreter::visit_expr(const Expr* expr) {
 		                /* A */
 		                [&, expr](std::shared_ptr<dara::backend::Class> cls)
 		                    -> Result<Value> {
-			                if (arguments.size() != cls->arity()) {
+			                // 1029
+			                if (arguments.size() != cls->arity() &&
+			                    cls->arity() != static_cast<size_t>(-1)) {
 				                return std::unexpected(
 				                    dara::error::InterpreterError{
 				                        "Expected " +
@@ -1562,80 +1887,84 @@ Result<Value> Interpreter::visit_expr(const Expr* expr) {
 		                 },
 		                 */
 		                [&](std::shared_ptr<Array> array) -> Result<Value> {
+			                return dara::backend::get_array_property(
+			                    *this, array, e.name);
+
+			                /*
 			                if (e.name.lexeme == "size") {
-				                return Value{
-				                    .data = static_cast<int>(array->size())};
+			                    return Value{
+			                        .data = static_cast<int>(array->size())};
 			                }
 			                if (e.name.lexeme == "push") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    push_method = std::allocate_shared<
-				                        dara::backend::BuiltinArrayPush>(
-				                        this->alloc, array);
-				                // return Value{.data = std::allocate_shared<
-				                //           dara::backend::BuiltinNow>(
-				                //           this->alloc, array)};
-				                return Value{.data = std::move(push_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        push_method = std::allocate_shared<
+			                            dara::backend::BuiltinArrayPush>(
+			                            this->alloc, array);
+			                    // return Value{.data = std::allocate_shared<
+			                    //           dara::backend::BuiltinNow>(
+			                    //           this->alloc, array)};
+			                    return Value{.data = std::move(push_method)};
 			                }
 			                if (e.name.lexeme == "pop") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    pop_method = std::allocate_shared<
-				                        dara::backend::BuiltinArrayPop>(
-				                        this->alloc, array);
-				                return Value{.data = std::move(pop_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        pop_method = std::allocate_shared<
+			                            dara::backend::BuiltinArrayPop>(
+			                            this->alloc, array);
+			                    return Value{.data = std::move(pop_method)};
 			                }
 			                if (e.name.lexeme == "index") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    index_method = std::allocate_shared<
-				                        dara::backend::BuiltinArrayIndex>(
-				                        this->alloc, array);
-				                return Value{.data = std::move(index_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        index_method = std::allocate_shared<
+			                            dara::backend::BuiltinArrayIndex>(
+			                            this->alloc, array);
+			                    return Value{.data = std::move(index_method)};
 			                }
 			                if (e.name.lexeme == "clear") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    clear_method = std::allocate_shared<
-				                        dara::backend::BuiltinArrayClear>(
-				                        this->alloc, array);
-				                return Value{.data = std::move(clear_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        clear_method = std::allocate_shared<
+			                            dara::backend::BuiltinArrayClear>(
+			                            this->alloc, array);
+			                    return Value{.data = std::move(clear_method)};
 			                }
 
 			                if (e.name.lexeme == "insert") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    insert_method = std::allocate_shared<
-				                        dara::backend::BuiltinArrayInsert>(
-				                        this->alloc, array);
-				                return Value{.data = std::move(insert_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        insert_method = std::allocate_shared<
+			                            dara::backend::BuiltinArrayInsert>(
+			                            this->alloc, array);
+			                    return Value{.data = std::move(insert_method)};
 			                }
 
 			                if (e.name.lexeme == "map") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    map_method = std::allocate_shared<
-				                        dara::backend::BuiltinArrayMap>(
-				                        this->alloc, array);
-				                return Value{.data = std::move(map_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        map_method = std::allocate_shared<
+			                            dara::backend::BuiltinArrayMap>(
+			                            this->alloc, array);
+			                    return Value{.data = std::move(map_method)};
 			                }
 
 			                if (e.name.lexeme == "filter") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    filter_method = std::allocate_shared<
-				                        dara::backend::BuiltinArrayFilter>(
-				                        this->alloc, array);
-				                return Value{.data = std::move(filter_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        filter_method = std::allocate_shared<
+			                            dara::backend::BuiltinArrayFilter>(
+			                            this->alloc, array);
+			                    return Value{.data = std::move(filter_method)};
 			                }
 
 			                if (e.name.lexeme == "reduce") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    filter_method = std::allocate_shared<
-				                        dara::backend::BuiltinArrayReduce>(
-				                        this->alloc, array);
-				                return Value{.data = std::move(filter_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        filter_method = std::allocate_shared<
+			                            dara::backend::BuiltinArrayReduce>(
+			                            this->alloc, array);
+			                    return Value{.data = std::move(filter_method)};
 			                }
 
 			                if (e.name.lexeme == "clone") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    clone_method = std::allocate_shared<
-				                        dara::backend::BuiltinArrayClone>(
-				                        this->alloc, array);
-				                return Value{.data = std::move(clone_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        clone_method = std::allocate_shared<
+			                            dara::backend::BuiltinArrayClone>(
+			                            this->alloc, array);
+			                    return Value{.data = std::move(clone_method)};
 			                }
 
 			                return std::unexpected(
@@ -1643,49 +1972,54 @@ Result<Value> Interpreter::visit_expr(const Expr* expr) {
 			                        "Array does not have proterty '" +
 			                            e.name.lexeme + "'.",
 			                        e.name.span));
+			                */
 		                },
 		                [&](std::shared_ptr<Map> map) -> Result<Value> {
+			                return dara::backend::get_map_property(*this, map,
+			                                                       e.name);
+
+			                /*
 			                if (e.name.lexeme == "clear") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    clear_method = std::allocate_shared<
-				                        dara::backend::BuiltinMapClear>(
-				                        this->alloc, map);
-				                return Value{.data = std::move(clear_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        clear_method = std::allocate_shared<
+			                            dara::backend::BuiltinMapClear>(
+			                            this->alloc, map);
+			                    return Value{.data = std::move(clear_method)};
 			                }
 			                if (e.name.lexeme == "has") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    has_method = std::allocate_shared<
-				                        dara::backend::BuiltinMapHas>(
-				                        this->alloc, map);
-				                return Value{.data = std::move(has_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        has_method = std::allocate_shared<
+			                            dara::backend::BuiltinMapHas>(
+			                            this->alloc, map);
+			                    return Value{.data = std::move(has_method)};
 			                }
 			                if (e.name.lexeme == "keys") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    keys_method = std::allocate_shared<
-				                        dara::backend::BuiltinMapKeys>(
-				                        this->alloc, map);
-				                return Value{.data = std::move(keys_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        keys_method = std::allocate_shared<
+			                            dara::backend::BuiltinMapKeys>(
+			                            this->alloc, map);
+			                    return Value{.data = std::move(keys_method)};
 			                }
 			                if (e.name.lexeme == "values") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    values_method = std::allocate_shared<
-				                        dara::backend::BuiltinMapValues>(
-				                        this->alloc, map);
-				                return Value{.data = std::move(values_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        values_method = std::allocate_shared<
+			                            dara::backend::BuiltinMapValues>(
+			                            this->alloc, map);
+			                    return Value{.data = std::move(values_method)};
 			                }
 			                if (e.name.lexeme == "get") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    get_method = std::allocate_shared<
-				                        dara::backend::BuiltinMapGet>(
-				                        this->alloc, map);
-				                return Value{.data = std::move(get_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        get_method = std::allocate_shared<
+			                            dara::backend::BuiltinMapGet>(
+			                            this->alloc, map);
+			                    return Value{.data = std::move(get_method)};
 			                }
 			                if (e.name.lexeme == "clone") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    clone_method = std::allocate_shared<
-				                        dara::backend::BuiltinMapClone>(
-				                        this->alloc, map);
-				                return Value{.data = std::move(clone_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        clone_method = std::allocate_shared<
+			                            dara::backend::BuiltinMapClone>(
+			                            this->alloc, map);
+			                    return Value{.data = std::move(clone_method)};
 			                }
 
 			                return std::unexpected(
@@ -1693,82 +2027,83 @@ Result<Value> Interpreter::visit_expr(const Expr* expr) {
 			                        "Map does not have proterty '" +
 			                            e.name.lexeme + "'.",
 			                        e.name.span));
+			                */
 		                },
 		                [&](String str) -> Result<Value> {
-                            
+			                /*
 			                if (e.name.lexeme == "contains") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    contains_method = std::allocate_shared<
-				                        dara::backend::BuiltinStringContains>(
-				                        this->alloc, str);
-				                return Value{.data =
-				                                 std::move(contains_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        contains_method = std::allocate_shared<
+			                            dara::backend::BuiltinStringContains>(
+			                            this->alloc, str);
+			                    return Value{.data =
+			                                     std::move(contains_method)};
 			                }
-                            
-                            //return dara::backend::get_string_property(*this, str, e.name);
+			                */
 
+			                /*
 			                if (e.name.lexeme == "length") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    length_method = std::allocate_shared<
-				                        dara::backend::BuiltinStringLength>(
-				                        this->alloc, str);
-				                return Value{.data = std::move(length_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        length_method = std::allocate_shared<
+			                            dara::backend::BuiltinStringLength>(
+			                            this->alloc, str);
+			                    return Value{.data = std::move(length_method)};
 			                }
 			                if (e.name.lexeme == "starts_with") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    startswith_method = std::allocate_shared<
-				                        dara::backend::BuiltinStringStartsWith>(
-				                        this->alloc, str);
-				                return Value{.data =
-				                                 std::move(startswith_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        startswith_method = std::allocate_shared<
+			                            dara::backend::BuiltinStringStartsWith>(
+			                            this->alloc, str);
+			                    return Value{.data =
+			                                     std::move(startswith_method)};
 			                }
 			                if (e.name.lexeme == "ends_with") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    endswith_method = std::allocate_shared<
-				                        dara::backend::BuiltinStringEndsWith>(
-				                        this->alloc, str);
-				                return Value{.data =
-				                                 std::move(endswith_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        endswith_method = std::allocate_shared<
+			                            dara::backend::BuiltinStringEndsWith>(
+			                            this->alloc, str);
+			                    return Value{.data =
+			                                     std::move(endswith_method)};
 			                }
 			                if (e.name.lexeme == "substring") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    substring_method = std::allocate_shared<
-				                        dara::backend::BuiltinStringSubstring>(
-				                        this->alloc, str);
-				                return Value{.data =
-				                                 std::move(substring_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        substring_method = std::allocate_shared<
+			                            dara::backend::BuiltinStringSubstring>(
+			                            this->alloc, str);
+			                    return Value{.data =
+			                                     std::move(substring_method)};
 			                }
 			                if (e.name.lexeme == "split") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    split_method = std::allocate_shared<
-				                        dara::backend::BuiltinStringSplit>(
-				                        this->alloc, str);
-				                return Value{.data =
-				                                 std::move(split_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        split_method = std::allocate_shared<
+			                            dara::backend::BuiltinStringSplit>(
+			                            this->alloc, str);
+			                    return Value{.data =
+			                                     std::move(split_method)};
 			                }
 			                if (e.name.lexeme == "trim") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    split_method = std::allocate_shared<
-				                        dara::backend::BuiltinStringTrim>(
-				                        this->alloc, str);
-				                return Value{.data =
-				                                 std::move(split_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        split_method = std::allocate_shared<
+			                            dara::backend::BuiltinStringTrim>(
+			                            this->alloc, str);
+			                    return Value{.data =
+			                                     std::move(split_method)};
 			                }
 			                if (e.name.lexeme == "to_upper") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    upper_method = std::allocate_shared<
-				                        dara::backend::BuiltinStringToUpper>(
-				                        this->alloc, str);
-				                return Value{.data =
-				                                 std::move(upper_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        upper_method = std::allocate_shared<
+			                            dara::backend::BuiltinStringToUpper>(
+			                            this->alloc, str);
+			                    return Value{.data =
+			                                     std::move(upper_method)};
 			                }
 			                if (e.name.lexeme == "to_lower") {
-				                std::shared_ptr<dara::backend::Callable>
-				                    lower_method = std::allocate_shared<
-				                        dara::backend::BuiltinStringToLower>(
-				                        this->alloc, str);
-				                return Value{.data =
-				                                 std::move(lower_method)};
+			                    std::shared_ptr<dara::backend::Callable>
+			                        lower_method = std::allocate_shared<
+			                            dara::backend::BuiltinStringToLower>(
+			                            this->alloc, str);
+			                    return Value{.data =
+			                                     std::move(lower_method)};
 			                }
 
 			                return std::unexpected(
@@ -1776,6 +2111,10 @@ Result<Value> Interpreter::visit_expr(const Expr* expr) {
 			                        "String does not have proterty '" +
 			                            e.name.lexeme + "'.",
 			                        e.name.span));
+			                */
+
+			                return dara::backend::get_string_property(
+			                    *this, str, e.name);
 		                },
 
 		                // 3. それ以外の型にはドットアクセス不可
@@ -1843,10 +2182,10 @@ Result<Value> Interpreter::visit_expr(const Expr* expr) {
 	        },
 
 	        [expr](const auto&) -> Result<Value> {
-		        PRINT_LINE();
-		        // return std::unexpected(dara::error::InterpreterError{
-		        //     "unimplemented expression evaluation", expr->line,
-		        //     expr->col});
+		        // PRINT_LINE();
+		        //  return std::unexpected(dara::error::InterpreterError{
+		        //      "unimplemented expression evaluation", expr->line,
+		        //      expr->col});
 		        return std::unexpected(dara::error::InterpreterError{
 		            .message = "unimplemented expression evaluation",
 		            .span = expr->span,

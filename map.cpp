@@ -4,8 +4,9 @@
 // #include <memory>
 // #include <memory_resource>
 
-//#include "builtin.hpp"
+// #include "builtin.hpp"
 #include "map.hpp"
+
 #include "callable.hpp"
 #include "error.hpp"
 #include "interpreter.hpp"
@@ -26,6 +27,54 @@ overloaded(Ts...) -> overloaded<Ts...>;
 namespace dara::backend {
 
 using namespace dara::ast;
+
+std::expected<Value, dara::error::InterpreterError> get_map_property(
+    Interpreter& interpreter, const std::shared_ptr<Map> map,
+    const dara::ast::Identifier& name) {
+
+    //const auto& alloc = interpreter.get_allocator();
+	const auto& alloc = interpreter.get_allocator();
+
+	if (name.lexeme == "clear") {
+		std::shared_ptr<dara::backend::Callable> clear_method =
+		    std::allocate_shared<dara::backend::BuiltinMapClear>(alloc,
+		                                                         map);
+		return Value{.data = std::move(clear_method)};
+	}
+	if (name.lexeme == "has") {
+		std::shared_ptr<dara::backend::Callable> has_method =
+		    std::allocate_shared<dara::backend::BuiltinMapHas>(alloc,
+		                                                       map);
+		return Value{.data = std::move(has_method)};
+	}
+	if (name.lexeme == "keys") {
+		std::shared_ptr<dara::backend::Callable> keys_method =
+		    std::allocate_shared<dara::backend::BuiltinMapKeys>(alloc,
+		                                                        map);
+		return Value{.data = std::move(keys_method)};
+	}
+	if (name.lexeme == "values") {
+		std::shared_ptr<dara::backend::Callable> values_method =
+		    std::allocate_shared<dara::backend::BuiltinMapValues>(alloc,
+		                                                          map);
+		return Value{.data = std::move(values_method)};
+	}
+	if (name.lexeme == "get") {
+		std::shared_ptr<dara::backend::Callable> get_method =
+		    std::allocate_shared<dara::backend::BuiltinMapGet>(alloc,
+		                                                       map);
+		return Value{.data = std::move(get_method)};
+	}
+	if (name.lexeme == "clone") {
+		std::shared_ptr<dara::backend::Callable> clone_method =
+		    std::allocate_shared<dara::backend::BuiltinMapClone>(alloc,
+		                                                         map);
+		return Value{.data = std::move(clone_method)};
+	}
+
+	return std::unexpected(dara::error::InterpreterError(
+	    "map does not have property '" + name.lexeme + "'.", name.span));
+}
 
 // in builtin_map.cpp
 std::expected<Value, dara::error::InterpreterError> BuiltinMapHas::call(
@@ -51,8 +100,8 @@ std::expected<Value, dara::error::InterpreterError> BuiltinMapHas::call(
 		    "first argument to has() must be a string key"));
 	}
 	bool found = this->map->contains(*str_ptr);
-	//bool found = this->map->contains(&arg.data);
-	// bool found = ((*this->map).find(*str_ptr) != (*this->map).end());
+	// bool found = this->map->contains(&arg.data);
+	//  bool found = ((*this->map).find(*str_ptr) != (*this->map).end());
 
 	return Value{.data = found};
 }
@@ -117,17 +166,16 @@ std::expected<Value, dara::error::InterpreterError> BuiltinMapGet::call(
 		    "first argument to get() must be a string key"));
 	}
 
-	//bool found = this->map->contains(*key_ptr);
+	// bool found = this->map->contains(*key_ptr);
 	auto it = this->map->find(*key_ptr);
-	if (it!= this->map->end()) {
+	if (it != this->map->end()) {
 		auto it = this->map->find(*key_ptr);
-        //return Value{.data = it->first};
-        return it->second;
+		// return Value{.data = it->first};
+		return it->second;
 	} else {
-	    return default_value;
+		return default_value;
 	}
 	// bool found = ((*this->map).find(*str_ptr) != (*this->map).end());
-
 }
 
 std::expected<Value, dara::error::InterpreterError> BuiltinMapClone::call(
@@ -136,13 +184,13 @@ std::expected<Value, dara::error::InterpreterError> BuiltinMapClone::call(
 		return std::unexpected(dara::error::InterpreterError(
 		    "clone() expects exactly 0 argument"));
 	}
-    /*
+	/*
 	auto filtered_array = std::make_shared<Array>();
 	for (const auto& elem : *(this->array)) {
-		filtered_array->push_back(elem.clone(interpreter.get_allocator()));
+	    filtered_array->push_back(elem.clone(interpreter.get_allocator()));
 	}
-    */
-    Value self_val{.data = this->map};
+	*/
+	Value self_val{.data = this->map};
 
 	return self_val.clone(interpreter.get_allocator());
 }

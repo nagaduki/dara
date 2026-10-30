@@ -15,6 +15,7 @@ public:
     dara::ast::Result<Value> get(Interpreter& interpreter, const std::string& name);
     void set(const std::string& name, Value value);
     std::vector<std::string> get_property_names() const;
+	//bool has_fields(std::string& name) const;
     std::shared_ptr<Class> get_class() const;
 };
 

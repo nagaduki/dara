@@ -1,10 +1,11 @@
+#include "array.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <format>
 #include <memory>
 #include <memory_resource>
 
-#include "array.hpp"
 #include "callable.hpp"
 #include "error.hpp"
 #include "interpreter.hpp"
@@ -25,6 +26,94 @@ overloaded(Ts...) -> overloaded<Ts...>;
 namespace dara::backend {
 
 using namespace dara::ast;
+
+std::expected<Value, dara::error::InterpreterError> get_array_property(
+    Interpreter& interpreter, const std::shared_ptr<Array> array,
+    const dara::ast::Identifier& name) {
+	// const auto& alloc = interpreter.get_allocator();
+	const auto& alloc = interpreter.get_allocator();
+
+	if (name.lexeme == "size") {
+		return Value{.data = static_cast<int>(array->size())};
+	}
+	if (name.lexeme == "push") {
+		std::shared_ptr<dara::backend::Callable> push_method =
+		    std::allocate_shared<dara::backend::BuiltinArrayPush>(alloc, array);
+		// return Value{.data = std::allocate_shared<
+		//           dara::backend::BuiltinNow>(
+		//           this->alloc, array)};
+		return Value{.data = std::move(push_method)};
+	}
+	if (name.lexeme == "pop") {
+		std::shared_ptr<dara::backend::Callable> pop_method =
+		    std::allocate_shared<dara::backend::BuiltinArrayPop>(alloc, array);
+		return Value{.data = std::move(pop_method)};
+	}
+	if (name.lexeme == "index") {
+		std::shared_ptr<dara::backend::Callable> index_method =
+		    std::allocate_shared<dara::backend::BuiltinArrayIndex>(alloc,
+		                                                           array);
+		return Value{.data = std::move(index_method)};
+	}
+	if (name.lexeme == "clear") {
+		std::shared_ptr<dara::backend::Callable> clear_method =
+		    std::allocate_shared<dara::backend::BuiltinArrayClear>(alloc,
+		                                                           array);
+		return Value{.data = std::move(clear_method)};
+	}
+
+	if (name.lexeme == "insert") {
+		std::shared_ptr<dara::backend::Callable> insert_method =
+		    std::allocate_shared<dara::backend::BuiltinArrayInsert>(alloc,
+		                                                            array);
+		return Value{.data = std::move(insert_method)};
+	}
+
+	if (name.lexeme == "map") {
+		std::shared_ptr<dara::backend::Callable> map_method =
+		    std::allocate_shared<dara::backend::BuiltinArrayMap>(alloc, array);
+		return Value{.data = std::move(map_method)};
+	}
+
+	if (name.lexeme == "filter") {
+		std::shared_ptr<dara::backend::Callable> filter_method =
+		    std::allocate_shared<dara::backend::BuiltinArrayFilter>(alloc,
+		                                                            array);
+		return Value{.data = std::move(filter_method)};
+	}
+
+	if (name.lexeme == "reduce") {
+		std::shared_ptr<dara::backend::Callable> filter_method =
+		    std::allocate_shared<dara::backend::BuiltinArrayReduce>(alloc,
+		                                                            array);
+		return Value{.data = std::move(filter_method)};
+	}
+
+	if (name.lexeme == "clone") {
+		std::shared_ptr<dara::backend::Callable> clone_method =
+		    std::allocate_shared<dara::backend::BuiltinArrayClone>(alloc,
+		                                                           array);
+		return Value{.data = std::move(clone_method)};
+	}
+
+	if (name.lexeme == "clone") {
+		std::shared_ptr<dara::backend::Callable> clone_method =
+		    std::allocate_shared<dara::backend::BuiltinArrayClone>(alloc,
+		                                                           array);
+		return Value{.data = std::move(clone_method)};
+	}
+
+	if (name.lexeme == "join") {
+		std::shared_ptr<dara::backend::Callable> join_method =
+		    std::allocate_shared<dara::backend::BuiltinArrayJoin>(alloc,
+		                                                           array);
+		return Value{.data = std::move(join_method)};
+	}
+
+
+	return std::unexpected(dara::error::InterpreterError(
+	    "Array does not have proterty '" + name.lexeme + "'.", name.span));
+}
 
 std::expected<Value, dara::error::InterpreterError> BuiltinArrayPush::call(
     Interpreter& interpreter, const std::vector<Value>& arguments) {
@@ -296,15 +385,59 @@ std::expected<Value, dara::error::InterpreterError> BuiltinArrayClone::call(
 		return std::unexpected(dara::error::InterpreterError(
 		    "clone() expects exactly 0 argument"));
 	}
-    /*
+	/*
 	auto filtered_array = std::make_shared<Array>();
 	for (const auto& elem : *(this->array)) {
-		filtered_array->push_back(elem.clone(interpreter.get_allocator()));
+	    filtered_array->push_back(elem.clone(interpreter.get_allocator()));
 	}
-    */
-    Value self_val{.data = this->array};
+	*/
+	Value self_val{.data = this->array};
 
 	return self_val.clone(interpreter.get_allocator());
+}
+
+std::expected<Value, dara::error::InterpreterError> BuiltinArrayJoin::call(
+    Interpreter& interpreter, const std::vector<Value>& arguments) {
+	if (arguments.size() > 1) {
+		return std::unexpected(dara::error::InterpreterError(
+		    "join() expects 0 or 1 argument, but got " +
+		    std::to_string(arguments.size()) + "."));
+	}
+
+	char char_buf[1];
+	std::string_view delimiter = "";
+
+	if (arguments.size() == 1) {
+		const auto& arg_data = arguments.at(0).data;
+		if (const auto* char_ptr = std::get_if<char>(&arg_data)) {
+			char_buf[0] = *char_ptr;
+			delimiter = std::string_view(char_buf, 1);
+		} else if (const auto* str_ptr = std::get_if<String>(&arg_data)) {
+			delimiter = std::string_view(str_ptr->data(), str_ptr->size());
+		} else {
+			return std::unexpected(dara::error::InterpreterError(
+			    "argument to join() must be a sring or char"));
+		}
+	}
+
+	String result("", interpreter.get_allocator());
+
+	for (size_t i = 0; i < this->array->size(); ++i) {
+		if (i > 0 && !delimiter.empty()) {
+			result.append(delimiter.data(), delimiter.size());
+		}
+		const auto& elem_data = (*this->array)[i].data;
+
+		if (const auto* s_ptr = std::get_if<String>(&elem_data)) {
+			result.append(s_ptr->data(), s_ptr->size());
+		} else if (const auto* c_ptr = std::get_if<char>(&elem_data)) {
+			result.push_back(*c_ptr);
+		} else {
+			return std::unexpected(dara::error::InterpreterError(
+			    "join() requires all array elements to be strings or chars"));
+		}
+	}
+	return Value{.data = std::move(result)};
 }
 
 }  // namespace dara::backend

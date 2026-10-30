@@ -11,7 +11,7 @@
 static const std::unordered_set<std::string> RESERVED_KEYWORDS = {
     "let",    "fn",      "if",       "else",   "while", "for", "class",
     "return", "break",   "continue", "true",   "false", "nil", "this",
-    "print",  "extends", "with",     "static", "in",    "is"};
+    "print",  "extends", "with",     "static", "in",    "is", "and", "or"};
 
 namespace dara::lexer {
 

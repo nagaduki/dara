@@ -10,6 +10,11 @@
 
 namespace dara::backend {
 
+// dispatcher
+std::expected<Value, dara::error::InterpreterError> get_array_property(
+    Interpreter& interpreter, const std::shared_ptr<Array> array,
+    const dara::ast::Identifier& name);
+
 
 // Array
 class BuiltinArrayPush : public Callable {
@@ -161,5 +166,19 @@ class BuiltinArrayClone : public Callable {
 	// bool check_inheritance(std::shared_ptr<dara::backend::Class> current,
 	// std::shared_ptr<dara::backend::Class> target);
 };
+
+class BuiltinArrayJoin : public Callable {
+   public:
+	BuiltinArrayJoin(std::shared_ptr<Array> array) : array(std::move(array)) {}
+	size_t arity() const override { return -1; }
+	std::expected<Value, dara::error::InterpreterError> call(
+	    Interpreter& interpreter, const std::vector<Value>& arguments) override;
+	std::string to_string() const override { return "<native fn array_join>"; }
+
+   private:
+	std::shared_ptr<Array> array;
+};
+
+
 
 }
