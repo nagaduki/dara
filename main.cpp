@@ -51,20 +51,23 @@ void run_file(const char* file_path) {
 			std::cerr << program_res.error().to_string(*s) << "\n";
 			return;
 		} else {
-			std::cout << "syntax ok: " << file_path << std::endl;
+			//std::cout << "syntax ok: " << file_path << std::endl;
 		}
 		Program program = std::move(program_res.value());
 
 		std::string dot_result = dotprinter.print(&program);
-		auto save_res =
+            // tempolary off
+	    /*	
+        auto save_res =
 		    save_to_file(std::format("./{}.dot", file_name), dot_result);
 		if (!save_res) {
 			std::cerr << "failed to save dot file Error: " << save_res.error()
 			          << "\n";
 		} else {
-			std::cout << "graphviz ok: " << file_path << std::endl;
+            //
+			//std::cout << "graphviz ok: " << file_path << std::endl;
 		}
-
+        */
 		if (!convert_dot_to_png(dot_result,
 		                        std::format("./{}.png", file_name))) {
 			std::cerr << "failed to convert png file Error: " << "\n";
@@ -166,7 +169,7 @@ void run_repl() {
 				continue;
 			}
 
-			// std::string dot_result = dotprinter.print(program.declarations);
+			//std::string dot_result = dotprinter.print(program.declarations);
 			std::string dot_result = dotprinter.print(&program);
 
 			auto save_res =

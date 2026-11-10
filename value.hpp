@@ -11,9 +11,9 @@
 //#include "instance.hpp"
 
 
-namespace dara::backend {
-    class Callable;
-}
+//namespace dara::backend {
+//   class Callable;
+//}
 
 namespace dara::backend {
     class Class;
@@ -30,12 +30,14 @@ class Callable;
 namespace dara::backend {
 
 struct Value;
+struct Tuple;
 
 using Allocator = std::pmr::polymorphic_allocator<std::byte>;
 //using String = std::pmr::basic_string<char>;
 using String = std::pmr::string;
 using Array = std::pmr::vector<Value>;
 using Map = std::pmr::unordered_map<std::pmr::string, Value>;
+//using Tuple = std::pmr::vector<Value>;
 
 std::string to_string(const Value& val);
 //std::string to_string(const Value& val);
@@ -54,7 +56,7 @@ using ValueData = std::variant<char, int, double, bool, Range,
                                //std::string,
                                String,
                                //
-                               //std::vector<Value>,
+                               std::shared_ptr<Tuple>,
                                //Array,
                                std::shared_ptr<Array>,
                                std::shared_ptr<Map>,
@@ -72,9 +74,10 @@ struct Value {
 	// ValueData value;
 	ValueData data;
 	// std::string to_string() const;
-	bool operator==(const Value& other) const {
-		return this->data == other.data;
-	}
+	//bool operator==(const Value& other) const {
+	//	return this->data == other.data;
+	//}
+	bool operator==(const Value& other) const;
 
 	template <typename T>
 	bool operator==(const T& other) const {
@@ -85,6 +88,7 @@ struct Value {
 	}
 
     Value clone(allocator_type alloc) const;
+    Value _clone(allocator_type alloc) const;
 };
 
 }  // namespace dara

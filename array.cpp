@@ -96,12 +96,14 @@ std::expected<Value, dara::error::InterpreterError> get_array_property(
 		return Value{.data = std::move(clone_method)};
 	}
 
+    /*
 	if (name.lexeme == "clone") {
 		std::shared_ptr<dara::backend::Callable> clone_method =
 		    std::allocate_shared<dara::backend::BuiltinArrayClone>(alloc,
 		                                                           array);
 		return Value{.data = std::move(clone_method)};
 	}
+    */
 
 	if (name.lexeme == "join") {
 		std::shared_ptr<dara::backend::Callable> join_method =

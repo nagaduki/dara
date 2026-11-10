@@ -36,7 +36,7 @@ class OverloadedConstructor {
 		if (it != constructors.end()) {
 			return it->second;
 		}
-        return nullptr;
+		return nullptr;
 	}
 };
 
@@ -46,33 +46,40 @@ class Class : public std::enable_shared_from_this<Class>,
 	std::string name;
 	std::shared_ptr<Class> super;
 	std::vector<std::shared_ptr<Class>> mixins;
-	std::unordered_map<std::string, Value> methods;
-	std::unordered_map<std::string, Value> static_methods;
+	// std::unordered_map<std::string, Value> methods;
+	std::unordered_map<std::string, Value> members;
+	// std::unordered_map<std::string, Value> static_methods;
+	std::unordered_map<std::string, Value> static_members;
+	std::unordered_set<std::string> static_fields;
 	//
 
 	// java like class
-    OverloadedConstructor constructors;
-	std::unordered_set<std::string> fields;
+	OverloadedConstructor constructors;
+	//std::unordered_set<std::string> fields;
 	std::vector<std::pair<std::string, const dara::ast::Expr*>>
 	    field_initializers;
 
-	Class(std::string name, 
-          std::shared_ptr<Class> super,
+	Class(std::string name, std::shared_ptr<Class> super,
 	      std::vector<std::shared_ptr<Class>> mixins,
-	      std::unordered_map<std::string, Value> methods,
-	      std::unordered_map<std::string, Value> static_methods = {},
-          OverloadedConstructor constructors = {},
-	      std::unordered_set<std::string> fields = {},
+	      // std::unordered_map<std::string, Value> methods,
+	      // std::unordered_set<std::string> fields = {},
+	      std::unordered_map<std::string, Value> members,
+	      // std::unordered_map<std::string, Value> static_methods = {},
+	      std::unordered_map<std::string, Value> static_members = {},
+	      std::unordered_set<std::string> static_fields = {},
+	      OverloadedConstructor constructors = {},
+
 	      std::vector<std::pair<std::string, const dara::ast::Expr*>>
 	          field_initializers = {})
 	    : name(std::move(name)),
 	      super(std::move(super)),
 	      mixins(std::move(mixins)),
-	      methods(std::move(methods)),
-	      static_methods(std::move(static_methods)),
+	      // methods(std::move(methods)),
+	      members(std::move(members)),
+	      static_members(std::move(static_members)),
+	      static_fields(std::move(static_fields)),
 	      constructors(std::move(constructors)),
-	      fields(std::move(fields)),
-	      field_initializers(std::move(field_initializers)){}
+	      field_initializers(std::move(field_initializers)) {}
 
 	size_t arity() const override;
 	dara::ast::Result<Value> call(dara::backend::Interpreter& interpreter,
@@ -89,12 +96,22 @@ class Class : public std::enable_shared_from_this<Class>,
 	                             const std::string& name);
 	// std::optional<Value> find_method(const std::string& name);
 
+	void set_static(const std::string& name, Value value);
+	bool has_static_field(const std::string& field_name) const;
+	bool has_static_method(const std::string& method_name) const;
 	//
 	// java like class
 	Value find_method(const std::string& method_name) const;
 	bool has_field(const std::string& field_name) const;
+	bool has_method(const std::string& method_name) const;
+	dara::ast::Result<void> validate_field_assign(
+	    //const std::string& field_name, const dara::core::Span& span) const;
+	    const std::string& field_name) const;
+	dara::ast::Result<void> validate_static_field_assign(
+	    //const std::string& field_name, const dara::core::Span& span) const;
+	    const std::string& field_name) const;
 
-	//dara::ast::Result<void> init_default_fields(
+	// dara::ast::Result<void> init_default_fields(
 	dara::ast::Result<void> init_fields(
 	    Interpreter& interpreter,
 	    const std::shared_ptr<Instance>& instance) const;

@@ -6,7 +6,8 @@
 #include <string>
 #include <vector>
 
-#include "callable.hpp"
+// #include "callable.hpp"
+#include "environment.hpp"
 #include "interpreter.hpp"
 
 namespace dara::backend {
@@ -16,9 +17,14 @@ using namespace dara::ast;
 Result<Value> Function::call(Interpreter& interpreter,
                              const std::vector<Value>& arguments) {
 	// auto local_env = std::make_shared<Environment>(this->closure);
-	auto local_env = std::allocate_shared<Environment>(
+
+    /*
+    auto local_env = std::allocate_shared<Environment>(
 	    interpreter.get_allocator(), interpreter.get_allocator(),
 	    this->closure);
+    */
+	auto local_env = Environment::create(interpreter.get_allocator(), this->closure);
+
 
 	for (size_t i = 0; i < declaration->parameters.size(); ++i) {
 		// local_env->define(declaration->parameters[i].lexeme, arguments[i]);
@@ -54,12 +60,15 @@ Result<Value> Function::call(Interpreter& interpreter,
 std::shared_ptr<Function> Function::bind(
     Interpreter& interpreter,
     std::shared_ptr<dara::backend::Instance> instance) {
-	auto env = std::allocate_shared<Environment>(interpreter.get_allocator(),
-	                                             interpreter.get_allocator(),
-	                                             this->closure);
-	env->define("this", Value{instance});  //
-	return std::allocate_shared<Function>(interpreter.get_allocator(),
-	                                      this->declaration, env);
+	const auto alloc = interpreter.get_allocator();
+	auto bound_env = Environment::create(alloc, this->closure);
+	bound_env->define("this", Value{std::move(instance)});
+	// auto env = std::allocate_shared<Environment>(interpreter.get_allocator(),
+	//                                              interpreter.get_allocator(),
+	//                                              this->closure);
+    auto bound_fn = std::allocate_shared<Function>(alloc, this->declaration, std::move(bound_env));
+    bound_fn->is_bound = true;
+    return bound_fn;
 }
 
 // template <typename T>
@@ -84,7 +93,7 @@ std::shared_ptr<OverloadedFunction> OverloadedFunction::bind(
 	for (const auto& [arity, fn] : overloads) {
 		bound->add_overload(fn->bind(interpreter, instance));
 	}
-    return bound;
+	return bound;
 }
 
 }  // namespace dara::backend

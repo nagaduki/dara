@@ -280,12 +280,14 @@ std::expected<Value, dara::error::InterpreterError> BuiltinProps::call(
 
 		auto current_class = (*instance)->get_class();
 		while (current_class != nullptr) {
-			for (const auto& [name, method] : current_class->methods) {
+			//for (const auto& [name, method] : current_class->methods) {
+			for (const auto& [name, method] : current_class->members) {
 				prop_names.insert(name);
 			}
 
 			for (const auto& mixin : current_class->mixins) {
-				for (const auto& [name, method] : mixin->methods) {
+				//for (const auto& [name, method] : mixin->methods) {
+				for (const auto& [name, method] : mixin->members) {
 					prop_names.insert(name);
 				}
 			}

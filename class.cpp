@@ -1,6 +1,9 @@
 /* class.cpp */
 #include "class.hpp"
 
+#include <utility>
+#include <variant>
+
 #include "callable.hpp"
 #include "error.hpp"
 #include "instance.hpp"  //  ここで Instance の完全な定義を読み込む
@@ -29,41 +32,115 @@ size_t Class::arity() const {
 */
 
 // java like class
+/*
 bool Class::has_field(const std::string& name) const {
-	if (this->fields.contains(name)) {
-		return true;
-	}
-	if (this->super && this->super->has_field(name)) {
-		return true;
-	}
-	for (const auto& mixin : this->mixins) {
-		if (mixin && mixin->has_field(name)) {
-			return true;
-		}
-	}
-	return false;
+    if (this->fields.contains(name)) {
+        return true;
+    }
+    if (this->super && this->super->has_field(name)) {
+        return true;
+    }
+    for (const auto& mixin : this->mixins) {
+        if (mixin && mixin->has_field(name)) {
+            return true;
+        }
+    }
+    return false;
+}
+*/
+
+// flat field
+bool Class::has_field(const std::string& name) const {
+	// if (this->fields.contains(name)) {
+	//	return true;
+	// }
+
+	// return this->fields.contains(name);
+
+	auto it = this->members.find(name);
+	return it != this->members.end() &&
+	       std::holds_alternative<std::monostate>(it->second.data);
 }
 
+bool Class::has_method(const std::string& name) const {
+	auto it = this->members.find(name);
+	return it != this->members.end() &&
+	       !std::holds_alternative<std::monostate>(it->second.data);
+}
+
+/*
+bool Class::has_method(const std::string& name) const {
+    if (this->methods.contains(name)) {
+        return true;
+    }
+    if (this->super && this->super->has_method(name)) {
+        return true;
+    }
+    for (const auto& mixin : this->mixins) {
+        if (mixin && mixin->has_method(name)) {
+            return true;
+        }
+    }
+    return false;
+}
+*/
+
+Value Class::find_method(const std::string& name) const {
+	auto it = this->members.find(name);
+	if (it != this->members.end() &&
+	    !std::holds_alternative<std::monostate>(it->second.data)) {
+		return it->second;
+	}
+	return Value{.data = std::monostate{}};
+}
+
+bool Class::has_static_field(const std::string& name) const {
+	return this->static_fields.contains(name);
+}
+
+bool Class::has_static_method(const std::string& name) const {
+	return this->static_members.contains(name) &&
+	       !this->static_fields.contains(name);
+}
+
+void Class::set_static(const std::string& name, Value value) {
+	this->static_members[name] = std::move(value);
+}
 // Result<void> Class::init_default_fields(
+/*
 Result<void> Class::init_fields(
     Interpreter& interpreter, const std::shared_ptr<Instance>& instance) const {
-	if (this->super) {
-		// auto res = this->super->init_default_fields(interpreter, instance);
-		auto res = this->super->init_fields(interpreter, instance);
-		if (!res) {
-			return res;
-		}
-	}
-	// 1027
-	for (const auto& mixin : this->mixins) {
-		if (mixin) {
-			// auto res = mixin->init_default_fields(interpreter, instance);
-			auto res = mixin->init_fields(interpreter, instance);
-			if (!res) {
-				return res;
-			}
-		}
-	}
+    if (this->super) {
+        // auto res = this->super->init_default_fields(interpreter, instance);
+        auto res = this->super->init_fields(interpreter, instance);
+        if (!res) {
+            return res;
+        }
+    }
+    // 1027
+    for (const auto& mixin : this->mixins) {
+        if (mixin) {
+            // auto res = mixin->init_default_fields(interpreter, instance);
+            auto res = mixin->init_fields(interpreter, instance);
+            if (!res) {
+                return res;
+            }
+        }
+    }
+    for (const auto& [field_name, init_expr] : this->field_initializers) {
+        auto val_res = interpreter.visit_expr(init_expr);
+        if (!val_res) {
+            return std::unexpected(val_res.error());
+        }
+        instance->set(field_name,
+                      interpreter.ensure_value_semantics(val_res.value()));
+    }
+    return {};
+}
+*/
+
+Result<void> Class::init_fields(
+    Interpreter& interpreter, const std::shared_ptr<Instance>& instance) const {
 	for (const auto& [field_name, init_expr] : this->field_initializers) {
 		auto val_res = interpreter.visit_expr(init_expr);
 		if (!val_res) {
@@ -132,7 +209,7 @@ Result<Value> Class::call(dara::backend::Interpreter& interpreter,
 	// auto instance = std::make_shared<Instance>(shared_from_this());
 	auto instance = std::allocate_shared<Instance>(interpreter.get_allocator(),
 	                                               shared_from_this());
-	//Value method_val = find_method(this->name);
+	// Value method_val = find_method(this->name);
 
 	auto init_fields_res = this->init_fields(interpreter, instance);
 	if (!init_fields_res) {
@@ -256,14 +333,65 @@ std::shared_ptr<Instance> Class::instantiate() {
 	return std::make_shared<Instance>(shared_from_this());
 }
 
+/*
 Result<Value> Class::get(Interpreter& interpreter, const std::string& name) {
-	if (this->static_methods.contains(name)) {
-		return Value{this->static_methods.at(name)};
+    if (this->static_methods.contains(name)) {
+        return Value{this->static_methods.at(name)};
+    }
+    return std::unexpected(
+        dara::error::InterpreterError("Undefined static property '" + name +
+                                      " on class '" + this->name + "'"));
+}
+*/
+Result<Value> Class::get(Interpreter& interpreter, const std::string& name) {
+	if (auto it = this->static_members.find(name);
+	    it != this->static_members.end()) {
+		// return Value{this->static_methods.at(name)};
+		return it->second;
 	}
 	return std::unexpected(
-	    dara::error::InterpreterError("Undefined static property '" + name +
-	                                  " on class '" + this->name + "'"));
+	    dara::error::InterpreterError("__Undefined static property '" + name +
+	                                  "' on class '" + this->name + "'__"));
 }
+
+//Result<void> Class::validate_field_assign(const std::string& name,
+//                                          const dara::core::Span& span) const {
+Result<void> Class::validate_field_assign(const std::string& name) const {
+	auto it = this->members.find(name);
+
+	// __validate_field_assign__check_empty_members__
+	if (it == this->members.end()) {
+		return std::unexpected(dara::error::InterpreterError{
+		    .message =
+		        "undefined field '" + name + "' on class '" + this->name + "'"});
+	}
+
+	// __validate_field_assign__exit_but_method__
+	if (!std::holds_alternative<std::monostate>(it->second.data)) {
+		return std::unexpected(dara::error::InterpreterError{
+		    .message = "cannot assign to method '" + name + "' on class '"});
+	}
+	return {};
+}
+
+//Result<void> Class::validate_static_field_assign(
+//    const std::string& field_name, const dara::core::Span& span) const {
+Result<void> Class::validate_static_field_assign(const std::string& field_name) const {
+	if (this->static_fields.contains(field_name)) {
+		return {};
+	}
+
+	// __validate_static_field_assign__chdck_static_method__
+	if (this->static_members.contains(field_name)) {
+		return std::unexpected(dara::error::InterpreterError{
+		    .message = "_cannot assign to static method '" + field_name +
+		               "' on class '" + this->name + "'_"});
+	}
+	return std::unexpected(dara::error::InterpreterError{
+	    .message = "__undefined static field '" + field_name + "' on class '" +
+	               this->name + "'__"});
+}
+
 /*
 Result<Value> Class::get(const std::string& name) {
     if (name == "new") {
@@ -278,33 +406,36 @@ property '" + name + " on class '" + this->name +
 }
 */
 
+/*
+// this is not flat version
 // std::optional<Value> Class::find_method(const std::string& name) {
 Value Class::find_method(const std::string& name) const {
-	if (this->methods.contains(name)) {
-		return this->methods.at(name);
-	}
+    if (this->methods.contains(name)) {
+        return this->methods.at(name);
+    }
 
-	if (this->super) {
-		Value super_method = this->super->find_method(name);
-		if (!std::holds_alternative<std::monostate>(super_method.data)) {
-			return super_method;
-		}
-		// return this->super->find_method(name);
-	}
+    if (this->super) {
+        Value super_method = this->super->find_method(name);
+        if (!std::holds_alternative<std::monostate>(super_method.data)) {
+            return super_method;
+        }
+        // return this->super->find_method(name);
+    }
 
-	for (const auto& mixin : this->mixins) {
-		Value mixin_method = mixin->find_method(name);
+    for (const auto& mixin : this->mixins) {
+        Value mixin_method = mixin->find_method(name);
 
-		if (!std::holds_alternative<std::monostate>(mixin_method.data)) {
-			return mixin_method;
-		}
-		// if (auto res = mixin->find_method(name)) {
-		//	return res;
-		// }
-	}
+        if (!std::holds_alternative<std::monostate>(mixin_method.data)) {
+            return mixin_method;
+        }
+        // if (auto res = mixin->find_method(name)) {
+        //	return res;
+        // }
+    }
 
-	// return std::nullopt;
-	return Value{.data = std::monostate{}};
-}
+    // return std::nullopt;
+    return Value{.data = std::monostate{}};
+};
+*/
 
 }  // namespace dara::backend

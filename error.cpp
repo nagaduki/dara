@@ -61,7 +61,10 @@ static std::string build_error_message(const dara::core::Source& src,
 		}
 
 		// 波線（Squiggles）を引く
-		int length = std::max(1, static_cast<int>(end - start));
+		int raw_length = std::max(1, static_cast<int>(end - start));
+		//int length = std::max(1, static_cast<int>(end - start));
+        int max_len_in_line = std::max( 1, static_cast<int>(source_line.length())-(l_col - 1));
+        int length = std::min(raw_length, max_len_in_line);
 		ss << COLOR_RED;
 		for (int i = 0; i < length; ++i) {
 			ss << "^";

@@ -158,7 +158,8 @@ class Interpreter {
 
 		// object_methods["type"] = Value{.data =
 		// std::make_shared<BuiltinType>()};
-		object_methods["type"] =
+        /*
+        object_methods["type"] =
 		    Value{.data = std::allocate_shared<BuiltinType>(this->alloc)};
 		object_methods["props"] =
 		    // Value{.data = std::make_shared<BuiltinProps>()};
@@ -166,6 +167,7 @@ class Interpreter {
 		// object_methods["id"] = Value{.data = std::make_shared<BuiltinId>()};
 		object_methods["id"] =
 		    Value{.data = std::allocate_shared<BuiltinId>(this->alloc)};
+        */
 		// auto object_class = std::make_shared<dara::backend::Class>(  //***
 		auto object_class = std::allocate_shared<dara::backend::Class>(  //***
 		    this->alloc, "Object", nullptr,
@@ -179,7 +181,20 @@ class Interpreter {
 	}
 
 	void define_native_functions() {
-		//
+		this->globals->define(
+            "type",
+		    Value{.data = std::allocate_shared<BuiltinType>(this->alloc)});
+		this->globals->define(
+            "id",
+		    Value{.data = std::allocate_shared<BuiltinId>(this->alloc)});
+		this->globals->define(
+            "props",
+		    Value{.data = std::allocate_shared<BuiltinProps>(this->alloc)});
+
+
+
+
+        //
 		// this->env->define(
 		this->globals->define(
 		    "clock",

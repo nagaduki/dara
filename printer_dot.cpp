@@ -916,6 +916,26 @@ std::string DotPrinter::visit_expr(const Expr* expr) {
 
 		        return id;
 	        },
+	        [this](const TupleExpr& expr) {
+		        std::string id = this->next_node_id();
+		        this->out << std::format(
+		                         "node_{} [label=\"TupleExpr\", shape=house];",
+		                         id)
+		                  << std::endl;
+		        int index = 0;
+		        for (const auto& elem : expr.elements) {
+			        std::string child_id = this->visit_expr(elem.get());
+
+			        // 矢印のラベルにインデックス番号（[0], [1]...）をつける
+			        this->out
+			            << std::format("node_{}->node_{} [label=\"[{}]\"];", id,
+			                           child_id, index)
+			            << std::endl;
+			        index++;
+		        }
+		        return id;
+	        },
+
 
 	        /*
 	        [this](const dara::CallExpr& expr) {  // dummy

@@ -3,9 +3,9 @@
 #pragma once
 #include <iostream>
 // #include <map>
+#include <memory_resource>
 #include <optional>
 #include <unordered_map>
-#include <memory_resource>
 // #include "interpreter.hpp"
 // #include "environment.hpp"
 #include "ast.hpp"
@@ -13,13 +13,15 @@
 
 class Environment {
    private:
-	//std::unordered_map<std::string, dara::backend::Value> variables;
+	// std::unordered_map<std::string, dara::backend::Value> variables;
 	std::pmr::unordered_map<std::string, dara::backend::Value> variables;
 	std::shared_ptr<Environment> enclosing;
 
    public:
-	//Environment() : enclosing(nullptr) {};
-	explicit Environment(dara::backend::Allocator alloc, std::shared_ptr<Environment> enclosing = nullptr) //(***)
+	// Environment() : enclosing(nullptr) {};
+	explicit Environment(
+	    dara::backend::Allocator alloc,
+	    std::shared_ptr<Environment> enclosing = nullptr)  //(***)
 	    : variables(alloc), enclosing(std::move(enclosing)) {}
 	void define(const std::string& name, const dara::backend::Value& value) {
 		this->variables[name] = value;
@@ -50,22 +52,23 @@ class Environment {
 		return false;
 	}
 
-    /*
+	/*
 	std::unordered_map<std::string, dara::backend::Value> get_all_values() {
-        std::unordered_map<std::string, dara::backend::Value> variables;
-		for (const auto& [name, val] : this->variables) {
-			if (this->variables.contains(name)) {
-                variables[name]=val;
-			}
-		}
-		return variables;
+	    std::unordered_map<std::string, dara::backend::Value> variables;
+	    for (const auto& [name, val] : this->variables) {
+	        if (this->variables.contains(name)) {
+	            variables[name]=val;
+	        }
+	    }
+	    return variables;
 	}
-    */
-	//std::unordered_map<std::string, dara::backend::Value> get_all_values() const {
-	std::pmr::unordered_map<std::string, dara::backend::Value> get_all_values() const {
-        return this->variables;
-    }
-
+	*/
+	// std::unordered_map<std::string, dara::backend::Value> get_all_values()
+	// const {
+	std::pmr::unordered_map<std::string, dara::backend::Value> get_all_values()
+	    const {
+		return this->variables;
+	}
 
 	void dump() const {
 		std::cout << "=== Environment Dump ===" << std::endl;
@@ -77,4 +80,11 @@ class Environment {
 	}
 
 	void clear() { variables.clear(); }
+
+	static std::shared_ptr<Environment> create(
+	    dara::backend::Allocator alloc,
+	    std::shared_ptr<Environment> enclosing = nullptr) {
+		return std::allocate_shared<Environment>(alloc, alloc,
+		                                         std::move(enclosing));
+	}
 };

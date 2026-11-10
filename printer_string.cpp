@@ -61,6 +61,10 @@ std::string StringPrinter::visit_expr(const Expr* expr) {
 		               // dummy
 		               return "ArrayExpr";
 	               },
+	               [this](const TupleExpr& expr) -> std::string {
+		               // dummy
+		               return "TupleExpr";
+	               },
 	               [this](const MapExpr& expr) -> std::string {
 		               // dummy
 		               return "MapExpr";

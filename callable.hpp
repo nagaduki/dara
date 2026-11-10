@@ -7,9 +7,10 @@
 #include <vector>
 
 #include "ast.hpp"
-#include "controlflow.hpp"
+//::::::::::::::::::::::::::::::::::::::::::::::::::#include "controlflow.hpp"
 #include "environment.hpp"
 #include "value.hpp"
+#include "controlflow.hpp"
 
 // class dara::error::InterpreterError;
 // class InterpreterError; //(*)
@@ -26,12 +27,12 @@ class Callable {
 	virtual std::expected<dara::backend::Value, dara::error::InterpreterError>
 	call(Interpreter& interpreter,
 	     const std::vector<dara::backend::Value>& argument) = 0;
-
 	virtual std::string to_string() const = 0;
 };
 
 class Function : public Callable {
    private:
+	bool is_bound = false;
 	const dara::ast::FunctionExpr* declaration;
 
 	std::shared_ptr<Environment> closure;
@@ -42,6 +43,8 @@ class Function : public Callable {
 	    : declaration(declaration), closure(closure) {}
 
 	size_t arity() const override { return declaration->parameters.size(); }
+	bool get_is_bound() const noexcept { return this->is_bound; }
+    //1107
 
 	dara::ast::Result<dara::backend::Value> call(
 	    Interpreter& interpreter,

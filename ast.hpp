@@ -1,30 +1,29 @@
 /* ast.hpp */
 #pragma once
 
+#include <expected>
+#include <functional>
 #include <memory>
 #include <string>
 #include <variant>
-#include <expected>
-#include <functional>
-#include <string>
 #include <vector>
-//#include "lexer.hpp"
-#include "span.hpp"
+// #include "lexer.hpp"
 #include "error.hpp"
 #include "operator.hpp"
+#include "span.hpp"
 
 /* Parser phase */
 /* expression */
 
-//namespace dara {
+// namespace dara {
 //
 using namespace dara::core;
 
 namespace dara::ast {
 
 struct Identifier {
-    std::string lexeme;
-    dara::core::Span span;
+	std::string lexeme;
+	dara::core::Span span;
 };
 
 class Expr;
@@ -54,8 +53,8 @@ struct AssignExpr {
 
 struct VarExpr {
 	Identifier name;
-	//std::string name;
-	// std::string value;
+	// std::string name;
+	//  std::string value;
 };
 
 /* mix expr */
@@ -68,14 +67,18 @@ struct ArrayExpr {
 	std::vector<std::unique_ptr<Expr>> elements;
 };
 
+struct TupleExpr {
+	std::vector<std::unique_ptr<Expr>> elements;
+};
+
 struct IndexExpr {
-	//std::unique_ptr<Expr> array;
+	// std::unique_ptr<Expr> array;
 	std::unique_ptr<Expr> target;
 	std::unique_ptr<Expr> index;
 };
 
 struct MapExpr {
-	//std::vector<std::pair<std::pmr::string, std::unique_ptr<Expr>>> elements;
+	// std::vector<std::pair<std::pmr::string, std::unique_ptr<Expr>>> elements;
 	std::vector<std::pair<std::string, std::unique_ptr<Expr>>> elements;
 };
 
@@ -84,40 +87,40 @@ struct ThisExpr {};
 struct GetExpr {
    public:
 	std::unique_ptr<Expr> object;
-	//std::string name;
-    dara::ast::Identifier name;
+	// std::string name;
+	dara::ast::Identifier name;
 };
 
 struct MethodDecl {
-	//std::string name;
-    dara::ast::Identifier name;
+	// std::string name;
+	dara::ast::Identifier name;
 	std::unique_ptr<Expr> function;
-    dara::core::Span span;
+	dara::core::Span span;
 };
 
 struct FieldDecl {
-	//std::string name;
-    dara::ast::Identifier name;
+	// std::string name;
+	dara::ast::Identifier name;
 	std::unique_ptr<Expr> initializer;
-    dara::core::Span span;
+	dara::core::Span span;
 };
-
 
 struct Decl;
 
 struct FunctionExpr {
-    //dara::ast::Identifier name;
-	//std::vector<std::string> parameters;
+	// dara::ast::Identifier name;
+	// std::vector<std::string> parameters;
 	std::vector<dara::ast::Identifier> parameters;
 	std::vector<std::unique_ptr<Decl>> body;
 };
 
 struct ClassDecl {
-	//std::string name;
-    dara::ast::Identifier name;
+	// std::string name;
+	dara::ast::Identifier name;
 	std::unique_ptr<Expr> super;
 	std::vector<std::unique_ptr<Expr>> mixins;
 	std::vector<FieldDecl> fields;
+	std::vector<FieldDecl> static_fields;
 	std::vector<MethodDecl> methods;
 	std::vector<MethodDecl> static_methods;
 };
@@ -133,38 +136,38 @@ struct IdentifierExpr {
 /* expression */
 /* operator */
 struct InfixOpExpr {
-	//dara::lexer::InfixOperator op;
+	// dara::lexer::InfixOperator op;
 	dara::core::InfixOperator op;
 	std::unique_ptr<Expr> lhs;
 	std::unique_ptr<Expr> rhs;
 };
 
 struct PrefixOpExpr {
-	//dara::lexer::PrefixOperator op;
+	// dara::lexer::PrefixOperator op;
 	dara::core::PrefixOperator op;
 	std::unique_ptr<Expr> rhs;
 };
 struct PostfixOpExpr {
-	//dara::lexer::PostfixOperator op;
+	// dara::lexer::PostfixOperator op;
 	dara::core::PostfixOperator op;
 	std::unique_ptr<Expr> lhs;
 };
 
 struct LogicalOpExpr {
-	//dara::lexer::LogicalOperator op;
+	// dara::lexer::LogicalOperator op;
 	dara::core::LogicalOperator op;
 	std::unique_ptr<Expr> lhs;
 	std::unique_ptr<Expr> rhs;
 };
 
-//enum class dara::lexer::MixfixOperator { Call, Index, Property }; // (***)
+// enum class dara::lexer::MixfixOperator { Call, Index, Property }; // (***)
 
 struct MixfixTrait {
 	int lbp;  // Metafixは右辺(rbp)を持たず、専用の関数で消費するためlbpのみでOK
 };
 
 struct MixfixRule {
-	//dara::lexer::MixfixOperator op;
+	// dara::lexer::MixfixOperator op;
 	dara::core::MixfixOperator op;
 	MixfixTrait trait;
 };
@@ -183,7 +186,9 @@ using ExprValue =
     std::variant<IntExpr, DoubleExpr, CharExpr, StringExpr, BoolExpr,
                  // IdentifierExpr,
                  // AssignExpr,
-                 ArrayExpr, MapExpr, IndexExpr, GetExpr, ThisExpr,
+                 ArrayExpr,
+                 TupleExpr,
+                 MapExpr, IndexExpr, GetExpr, ThisExpr,
                  //
                  CallExpr, FunctionExpr,
                  // VarExpr, InfixOpExpr, PrefixOpExpr, PostfixOpExpr>;
@@ -193,9 +198,9 @@ using ExprValue =
 class Expr {
    public:
 	ExprValue value;
-	//int line;
-	//int col;
-    Span span;
+	// int line;
+	// int col;
+	Span span;
 	std::string to_string() const;  // 実装は .cpp へ
 	// std::string to_string();  // 実装は .cpp へ
    private:
@@ -211,7 +216,7 @@ struct InfixTrait {
 };
 
 struct InfixRule {
-	//dara::lexer::InfixOperator op;
+	// dara::lexer::InfixOperator op;
 	dara::core::InfixOperator op;
 	InfixTrait trait;
 };
@@ -224,7 +229,7 @@ struct PrefixTrait {
 };
 
 struct PrefixRule {
-	//dara::lexer::PrefixOperator op;
+	// dara::lexer::PrefixOperator op;
 	dara::core::PrefixOperator op;
 	PrefixTrait trait;
 };
@@ -237,7 +242,7 @@ struct PostfixTrait {
 };
 
 struct PostfixRule {
-	//dara::lexer::PostfixOperator op;
+	// dara::lexer::PostfixOperator op;
 	dara::core::PostfixOperator op;
 	PostfixTrait trait;
 };
@@ -281,31 +286,31 @@ struct PrintStmt {
 };
 
 struct AssignStmt {
-	//std::string name;
+	// std::string name;
 	Identifier name;
 	std::unique_ptr<Expr> value;
 };
 
 struct SetStmt {
 	std::unique_ptr<Expr> object;
-	//std::string name;
-    dara::ast::Identifier name;
+	// std::string name;
+	dara::ast::Identifier name;
 	std::unique_ptr<Expr> value;
 };
 
 struct CompoundAssignStmt {
-	//std::string name;
-    dara::ast::Identifier name;
-	//dara::lexer::InfixOperator op;
+	// std::string name;
+	dara::ast::Identifier name;
+	// dara::lexer::InfixOperator op;
 	dara::core::InfixOperator op;
 	std::unique_ptr<Expr> value;
 };
 
 struct CompoundSetStmt {
 	std::unique_ptr<Expr> object;
-	//std::string name;
-    dara::ast::Identifier name;
-	//dara::lexer::InfixOperator op;
+	// std::string name;
+	dara::ast::Identifier name;
+	// dara::lexer::InfixOperator op;
 	dara::core::InfixOperator op;
 	std::unique_ptr<Expr> value;
 };
@@ -335,12 +340,12 @@ struct WhileStmt {
 };
 
 struct IncStmt {
-	//std::string name;
+	// std::string name;
 	Identifier name;
 };
 
 struct DecStmt {
-	//std::string name;
+	// std::string name;
 	Identifier name;
 };
 
@@ -353,32 +358,31 @@ struct ContinueStmt {};
 // struct SwitchStmt {};
 
 struct ForInStmt {
-	//std::string loop_variable;  // 例: "i"
-    dara::ast::Identifier loop_variable;  // 例: "i"
+	// std::string loop_variable;  // 例: "i"
+	dara::ast::Identifier loop_variable;  // 例: "i"
 	std::unique_ptr<Expr> iterable;
 	std::unique_ptr<Stmt> body;
 };
 
-using StmtValue =
-    std::variant<ExprStmt, BlockStmt, IfStmt,
-                 //
-                 WhileStmt, ForInStmt,
-                 //
-                 ReturnStmt,
-                 // SwtichStmt,
-                 IncStmt, DecStmt,
-                 //
-                 BreakStmt, ContinueStmt,
-                 //
-                 CompoundAssignStmt, AssignStmt, 
-                 //
-                 CompoundSetStmt, SetStmt, PrintStmt>;
+using StmtValue = std::variant<ExprStmt, BlockStmt, IfStmt,
+                               //
+                               WhileStmt, ForInStmt,
+                               //
+                               ReturnStmt,
+                               // SwtichStmt,
+                               IncStmt, DecStmt,
+                               //
+                               BreakStmt, ContinueStmt,
+                               //
+                               CompoundAssignStmt, AssignStmt,
+                               //
+                               CompoundSetStmt, SetStmt, PrintStmt>;
 
 struct Stmt {
 	StmtValue value;
-	//int line;
-	//int col;
-    Span span;
+	// int line;
+	// int col;
+	Span span;
 };
 
 /* declaration phase */
@@ -392,7 +396,7 @@ using Result = std::expected<T, dara::error::InterpreterError>;
 /// \details nameとinitializerの２つのmemberをもつ
 
 struct VarDecl {
-	//std::string name;
+	// std::string name;
 	Identifier name;
 	std::unique_ptr<Expr> initializer;
 };
@@ -418,12 +422,11 @@ using DeclValue = std::variant<VarDecl,  // EnumDecl,
 
 struct Decl {
 	DeclValue value;
-	//int line;
-	//int col;
-    Span span;
+	// int line;
+	// int col;
+	Span span;
 };
-
 
 // std::string to_string(const dara::Value& val);
 
-}  // namespace dara
+}  // namespace dara::ast
